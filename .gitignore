@@ -1,0 +1,8 @@
+output/
+*.csv
+*.parquet
+*.xls*
+*.xlsx
+*.xlsb
+__pycache__/
+.env
