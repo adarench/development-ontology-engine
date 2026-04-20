@@ -165,7 +165,7 @@ def build_phase_aggregates(lot_state: pd.DataFrame) -> pd.DataFrame:
 # Step 4: Allocation sheet parsing (per-phase expected costs)
 # ---------------------------------------------------------------------------
 
-def parse_allocation_sheet(file_path) -> pd.DataFrame:
+def parse_allocation_sheet(file_path, project_name: Optional[str] = None) -> pd.DataFrame:
     """Parse a semi-structured allocation CSV into per-phase expected cost rows.
 
     The source files have multiple sections with identical column layouts:
@@ -197,10 +197,13 @@ def parse_allocation_sheet(file_path) -> pd.DataFrame:
 
     rows = []
     for idx, row in raw.iloc[:stop_at].iterrows():
-        phase = strip_str(row.get(config.ALLOCATION_PHASE_COL))
+        phase_raw = strip_str(row.get(config.ALLOCATION_PHASE_COL))
         lot_count_raw = strip_str(row.get(config.ALLOCATION_LOTCOUNT_COL))
-        if not phase or not lot_count_raw:
+        if not phase_raw or not lot_count_raw:
             continue
+        # Normalize phase name through the same hook used by LotState so
+        # that allocation joins use canonical identifiers.
+        phase = config.normalize_phase(project_name, phase_raw)
         try:
             lot_count = int(float(lot_count_raw))
         except ValueError:
@@ -208,15 +211,25 @@ def parse_allocation_sheet(file_path) -> pd.DataFrame:
         if lot_count <= 0:
             continue
 
+        land_per_lot = abs(parse_money(row.get(config.ALLOCATION_LAND_COST_COL)))
+        direct_per_lot = abs(parse_money(row.get(config.ALLOCATION_DIRECT_DEV_COL)))
+        water_per_lot = abs(parse_money(row.get(config.ALLOCATION_WATER_COST_COL)))
+        indirect_per_lot = abs(parse_money(row.get(config.ALLOCATION_INDIRECTS_COL)))
+        total_per_lot = abs(parse_money(row.get(config.ALLOCATION_TOTAL_COST_COL)))
+
+        # Some allocation sheets omit total; reconstruct total from components.
+        if total_per_lot == 0:
+            total_per_lot = land_per_lot + direct_per_lot + water_per_lot + indirect_per_lot
+
         rows.append({
             "phase": phase,
             "prod_type": strip_str(row.get(config.ALLOCATION_PRODTYPE_COL)),
             "lot_count": lot_count,
-            "land_per_lot": abs(parse_money(row.get(config.ALLOCATION_LAND_COST_COL))),
-            "direct_per_lot": abs(parse_money(row.get(config.ALLOCATION_DIRECT_DEV_COL))),
-            "water_per_lot": abs(parse_money(row.get(config.ALLOCATION_WATER_COST_COL))),
-            "indirect_per_lot": abs(parse_money(row.get(config.ALLOCATION_INDIRECTS_COL))),
-            "total_per_lot": abs(parse_money(row.get(config.ALLOCATION_TOTAL_COST_COL))),
+            "land_per_lot": land_per_lot,
+            "direct_per_lot": direct_per_lot,
+            "water_per_lot": water_per_lot,
+            "indirect_per_lot": indirect_per_lot,
+            "total_per_lot": total_per_lot,
         })
 
     return pd.DataFrame(rows)
@@ -231,7 +244,7 @@ def build_allocation_expected() -> pd.DataFrame:
     """
     frames = []
     for file_path, (project_name, source_label) in config.ALLOCATION_SOURCES.items():
-        df = parse_allocation_sheet(file_path)
+        df = parse_allocation_sheet(file_path, project_name=project_name)
         if df.empty:
             continue
         df["project_name"] = project_name
@@ -274,9 +287,16 @@ def parse_collateral_report() -> pd.DataFrame:
     df.columns = [c.strip() for c in df.columns]
     df = df.dropna(subset=["Project", "Phase"])
 
-    # Normalize: project to title case, phase stripped
+    # Normalize: project to title case; phase through normalize_phase so
+    # any override applies symmetrically with LotState.
     df["project_name"] = df["Project"].str.strip().str.title()
-    df["phase_name"] = df["Phase"].str.strip()
+    df["phase_name"] = df.apply(
+        lambda r: config.normalize_phase(
+            str(r["Project"]).strip().title() if pd.notna(r["Project"]) else "",
+            r["Phase"],
+        ),
+        axis=1,
+    )
 
     df["expected_total_cost"] = df["Total Dev Cost (Spent + Remaining)"].map(parse_money)
     df["expected_cost_source"] = "Collateral Report Dec 2025"
@@ -303,6 +323,9 @@ def attach_expected_costs(
     phases["expected_total_cost"] = None
     phases["expected_cost_source"] = None
     phases["cost_data_completeness"] = None
+    # expected_lot_count records the denominator reported by the source,
+    # used to decide FULL vs PARTIAL in expected_cost_status.
+    phases["expected_lot_count"] = None
 
     # Priority 1: allocation sheets (FULL fidelity)
     # Only use the allocation sheet match if it produced a non-zero total cost.
@@ -322,6 +345,7 @@ def attach_expected_costs(
                 phases.loc[mask, "expected_total_cost"] = alloc["expected_total_cost"]
                 phases.loc[mask, "expected_cost_source"] = alloc["expected_cost_source"]
                 phases.loc[mask, "cost_data_completeness"] = "FULL"
+                phases.loc[mask, "expected_lot_count"] = alloc["expected_lot_count"]
 
     # Priority 2: Collateral Report fallback (PARTIAL — total only)
     for _, cr in collateral_expected.iterrows():
@@ -334,6 +358,32 @@ def attach_expected_costs(
             phases.loc[mask, "expected_total_cost"] = cr["expected_total_cost"]
             phases.loc[mask, "expected_cost_source"] = cr["expected_cost_source"]
             phases.loc[mask, "cost_data_completeness"] = "PARTIAL"
+
+    # Diagnostics — surface phase-alignment issues in both directions.
+    lot_state_keys = set(zip(phases["project_name"], phases["phase_name"]))
+    alloc_keys = set()
+    if not allocation_expected.empty:
+        alloc_keys = set(zip(allocation_expected["project_name"],
+                              allocation_expected["phase"]))
+    cr_keys = set()
+    if not collateral_expected.empty:
+        cr_nonzero = collateral_expected[collateral_expected["expected_total_cost"] > 0]
+        cr_keys = set(zip(cr_nonzero["project_name"], cr_nonzero["phase_name"]))
+
+    unmapped_alloc = sorted(alloc_keys - lot_state_keys)
+    unmapped_cr = sorted(cr_keys - lot_state_keys)
+    unmatched_phases = sorted(
+        k for k in lot_state_keys - alloc_keys - cr_keys
+    )
+    if unmapped_alloc:
+        print(f"  DIAG: allocation phases with no LotState match ({len(unmapped_alloc)}):")
+        for p, ph in unmapped_alloc:
+            print(f"    - {p}::{ph}")
+    if unmapped_cr:
+        print(f"  DIAG: Collateral-Report phases (nonzero) with no LotState match ({len(unmapped_cr)}):")
+        for p, ph in unmapped_cr:
+            print(f"    - {p}::{ph}")
+    print(f"  DIAG: LotState phases with no expected-cost source: {len(unmatched_phases)} / {len(lot_state_keys)}")
 
     # Compute per-lot averages
     phases["expected_direct_cost_per_lot"] = phases.apply(
@@ -382,9 +432,53 @@ def compute_variance(phases: pd.DataFrame) -> pd.DataFrame:
     phases["variance_per_lot"] = phases.apply(variance_per_lot, axis=1)
     phases["variance_pct"] = phases.apply(variance_pct, axis=1)
 
+    # Variance is only meaningful when both expected and actual costs exist
+    # and represent comparable horizontal cost categories.
+    phases["variance_meaningful"] = (
+        phases["actual_cost_total"].fillna(0).gt(0)
+        & phases["expected_total_cost"].notna()
+    )
+    not_meaningful = ~phases["variance_meaningful"]
+    phases.loc[not_meaningful, "variance_total"] = None
+    phases.loc[not_meaningful, "variance_per_lot"] = None
+    phases.loc[not_meaningful, "variance_pct"] = None
+
+    # Lightweight sanity check — flag large mismatches for debugging only.
+    for _, r in phases.iterrows():
+        if not r["variance_meaningful"]:
+            continue
+        expected = r["expected_total_cost"]
+        actual = r["actual_cost_total"]
+        if expected and expected > 0 and actual > expected * 3:
+            print(f"  WARNING: Large variance detected for phase {r['phase_id']} "
+                  f"(actual=${actual:,.0f}, expected=${expected:,.0f})")
+
     # Direct/indirect actuals — not available at lot level in v1
     phases["actual_direct_cost_total"] = None
     phases["actual_indirect_cost_total"] = None
+
+    # expected_cost_status — confidence bucket used to gate product queries.
+    #   FULL    = allocation-sheet source AND denominator matches lot_count_total
+    #   PARTIAL = any other nonzero expected (e.g., Collateral Report fallback)
+    #             or denominator mismatch
+    #   NONE    = no expected cost available
+    def _cost_status(r):
+        if pd.isna(r["expected_total_cost"]):
+            return "NONE"
+        source = r.get("expected_cost_source") or ""
+        denom_ok = (
+            pd.notna(r.get("expected_lot_count"))
+            and int(r["expected_lot_count"]) == int(r["lot_count_total"])
+        )
+        if str(source).startswith("Allocation Sheet") and denom_ok:
+            return "FULL"
+        return "PARTIAL"
+
+    phases["expected_cost_status"] = phases.apply(_cost_status, axis=1)
+    phases["is_queryable"] = (
+        (phases["expected_cost_status"] == "FULL")
+        & (phases["variance_meaningful"] == True)  # noqa: E712
+    )
 
     return phases
 
@@ -440,6 +534,41 @@ def build_phase_state() -> pd.DataFrame:
 
     phases_with_variance = output["variance_total"].notna().sum()
     print(f"\nPhases with computable variance: {phases_with_variance}/{len(output)}")
+
+    # ----- Query-ready dataset (FULL + variance_meaningful only) -----
+    query_columns = [
+        "project_name",
+        "phase_name",
+        "lot_count_total",
+        "expected_total_cost_per_lot",
+        "actual_cost_per_lot",
+        "variance_per_lot",
+        "variance_pct",
+        "product_mix_pct",
+        "phase_state",
+        "phase_majority_state",
+    ]
+    query_df = output[
+        (output["expected_cost_status"] == "FULL")
+        & (output["variance_meaningful"] == True)  # noqa: E712
+    ][query_columns].copy()
+    query_df = query_df.sort_values(by="variance_per_lot", ascending=False)
+
+    query_df.to_csv(config.PHASE_COST_QUERY_CSV, index=False)
+    query_df.to_parquet(config.PHASE_COST_QUERY_PARQUET, index=False)
+    print(f"  - {config.PHASE_COST_QUERY_CSV.relative_to(config.REPO_ROOT)}  ({len(query_df)} rows)")
+    print(f"  - {config.PHASE_COST_QUERY_PARQUET.relative_to(config.REPO_ROOT)}")
+
+    # ----- Summary bucket counts -----
+    status_counts = output["expected_cost_status"].value_counts()
+    print("\n" + "=" * 40)
+    print(f"TOTAL PHASES: {len(output)}")
+    print(f"FULL:    {int(status_counts.get('FULL', 0))}")
+    print(f"PARTIAL: {int(status_counts.get('PARTIAL', 0))}")
+    print(f"NONE:    {int(status_counts.get('NONE', 0))}")
+    print()
+    print(f"QUERYABLE PHASES: {int(output['is_queryable'].sum())}")
+    print("=" * 40)
 
     return output
 

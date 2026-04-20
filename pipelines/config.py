@@ -26,6 +26,8 @@ LOT_STATE_CSV = OUTPUT_DIR / "lot_state.csv"
 LOT_STATE_PARQUET = OUTPUT_DIR / "lot_state.parquet"
 PHASE_STATE_CSV = OUTPUT_DIR / "phase_state.csv"
 PHASE_STATE_PARQUET = OUTPUT_DIR / "phase_state.parquet"
+PHASE_COST_QUERY_CSV = OUTPUT_DIR / "phase_cost_query.csv"
+PHASE_COST_QUERY_PARQUET = OUTPUT_DIR / "phase_cost_query.parquet"
 
 # ---------------------------------------------------------------------------
 # Ingestion rules
@@ -71,10 +73,14 @@ ALL_DATE_COLUMNS = list(LOT_DATA_DATE_COLUMNS.values())
 # 2025Status cost columns — these are summed to produce cost_to_date
 # ---------------------------------------------------------------------------
 
+# cost_to_date is intentionally restricted to horizontal (land development) costs only.
+# This aligns with expected costs from allocation sheets.
+# "Direct Construction" is excluded because it mixes vertical + horizontal spend.
+# "Vertical Costs" and "Lot Cost" are excluded for the same reason (and to avoid
+# double-counting with "Direct Construction - Lot").
 COST_TO_DATE_COMPONENTS = [
     "Permits and Fees",
     "Direct Construction - Lot",
-    "Direct Construction",
     "Shared Cost Alloc.",
 ]
 
@@ -203,6 +209,41 @@ ALLOCATION_SOURCES = {
 }
 
 # ---------------------------------------------------------------------------
+# Phase-name normalization
+# ---------------------------------------------------------------------------
+# PHASE_NAME_OVERRIDES handles the rare case where a source file labels a
+# phase differently from Lot Data. Key = (project_name, raw_phase_name)
+# exactly as it appears in the source; value = the canonical phase_name used
+# in Lot Data. Kept small and explicit — no fuzzy matching.
+#
+# Current evidence: all 22 non-zero Collateral Report phases and all 17
+# allocation-sheet phases already match Lot Data after whitespace
+# normalization. This dict is an intentionally empty hook for future renames.
+PHASE_NAME_OVERRIDES: dict = {
+    # ("Example Project", "Phase 2C"): "2C",
+}
+
+
+def normalize_phase(project_name, raw_phase_name) -> str:
+    """Return a canonical phase_name for any (project, phase) input.
+
+    Deterministic rules (applied in order):
+      1. Coerce to string, strip leading/trailing whitespace.
+      2. Collapse any internal runs of whitespace to a single space.
+      3. Apply PHASE_NAME_OVERRIDES for the (project, raw) pair.
+
+    Callers build canonical_phase_id as f"{project_name}::{normalized_phase}".
+    """
+    if raw_phase_name is None:
+        return ""
+    s = str(raw_phase_name).strip()
+    if not s:
+        return ""
+    s = " ".join(s.split())
+    proj = str(project_name).strip() if project_name is not None else ""
+    return PHASE_NAME_OVERRIDES.get((proj, s), s)
+
+# ---------------------------------------------------------------------------
 # Output column ordering (matches ontology field order)
 # ---------------------------------------------------------------------------
 
@@ -285,6 +326,9 @@ PHASE_STATE_OUTPUT_COLUMNS = [
     "variance_total",
     "variance_per_lot",
     "variance_pct",
+    "variance_meaningful",
+    "expected_cost_status",
+    "is_queryable",
     # Phase lifecycle
     "phase_state",
     "phase_majority_state",

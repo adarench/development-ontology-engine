@@ -199,7 +199,12 @@ def compute_lot_type(row) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 def compute_cost_to_date(row) -> float:
-    """Sum the 4 cost components from 2025Status."""
+    """Sum the horizontal cost components from 2025Status.
+
+    cost_to_date is intentionally restricted to horizontal (land development)
+    costs only. This aligns with expected costs from allocation sheets.
+    The exact component list lives in config.COST_TO_DATE_COMPONENTS.
+    """
     return sum(row.get(c, 0.0) or 0.0 for c in config.COST_TO_DATE_COMPONENTS)
 
 
@@ -251,9 +256,12 @@ def build_lot_state() -> pd.DataFrame:
 
     print("[3/4] Computing derived fields...")
 
-    # Identity fields
+    # Identity fields — phase_name goes through normalize_phase so that any
+    # future rename overrides flow uniformly through LotState and PhaseState.
     df["project_name"] = df["Project"]
-    df["phase_name"] = df["Phase"]
+    df["phase_name"] = df.apply(
+        lambda r: config.normalize_phase(r["Project"], r["Phase"]), axis=1
+    )
     df["lot_number"] = df["LotNo."]
     df["canonical_lot_id"] = (
         df["project_name"] + "::" + df["phase_name"] + "::" + df["lot_number"]
