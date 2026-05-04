@@ -1,0 +1,271 @@
+{
+  "schema_version": "operating_state_v1",
+  "generated_at": "2026-04-29T23:38:21.864556+00:00",
+  "data_quality": {
+    "lots_total": 22,
+    "lots_high_confidence": 20,
+    "lots_medium_confidence": 0,
+    "lots_low_confidence": 2,
+    "lots_with_valid_progression": 19,
+    "projects_total": 3,
+    "projects_with_cost": 2,
+    "phases_estimated": 4
+  },
+  "phase_definition": "heuristic \u2014 gap-based clustering on lot_number (GAP_THRESHOLD=10). NOT a real plat reference.",
+  "projects": [
+    {
+      "project_code": "H A14",
+      "lots_total": 1,
+      "avg_completion_pct": 0.5556,
+      "stage_distribution": "Spec:1",
+      "financials": {
+        "gl_entity": "Flagborough LLC",
+        "project_total_cost": 66814.0,
+        "financial_confidence": "high",
+        "financial_notes": "GL entity 'Flagborough LLC' matched; cost is sum of |amount| on Activity rows."
+      },
+      "phases": [
+        {
+          "phase_id_estimated": "H A14 P1",
+          "phase_confidence": "estimated",
+          "lots_in_phase": 1,
+          "dominant_stage": "Spec",
+          "avg_completion_pct": 0.5556,
+          "lots": [
+            {
+              "lot_number": "1415",
+              "stage": "Spec",
+              "completion_pct": 0.5556,
+              "status": "in_progress",
+              "last_activity": "2026-04-15T00:00:00",
+              "source_confidence": "high"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project_code": "H MF",
+      "lots_total": 3,
+      "avg_completion_pct": 0.3333,
+      "stage_distribution": "(none):1|Backfill:1|Spec:1",
+      "financials": {
+        "gl_entity": "Flagborough LLC",
+        "project_total_cost": 66814.0,
+        "financial_confidence": "high",
+        "financial_notes": "GL entity 'Flagborough LLC' matched; cost is sum of |amount| on Activity rows."
+      },
+      "phases": [
+        {
+          "phase_id_estimated": "H MF P1",
+          "phase_confidence": "estimated",
+          "lots_in_phase": 1,
+          "dominant_stage": "Spec",
+          "avg_completion_pct": 0.5556,
+          "lots": [
+            {
+              "lot_number": "31",
+              "stage": "Spec",
+              "completion_pct": 0.5556,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "low"
+            }
+          ]
+        },
+        {
+          "phase_id_estimated": "H MF P2",
+          "phase_confidence": "estimated",
+          "lots_in_phase": 2,
+          "dominant_stage": "Backfill",
+          "avg_completion_pct": 0.2222,
+          "lots": [
+            {
+              "lot_number": "76",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-02-25T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "77",
+              "stage": null,
+              "completion_pct": 0.0,
+              "status": "not_started",
+              "last_activity": "2026-04-20T00:00:00",
+              "source_confidence": "low"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "project_code": "LE",
+      "lots_total": 18,
+      "avg_completion_pct": 0.4444,
+      "stage_distribution": "Backfill:18",
+      "financials": {
+        "gl_entity": "Anderson Geneva LLC",
+        "project_total_cost": 0.0,
+        "financial_confidence": "low",
+        "financial_notes": "GL entity 'Anderson Geneva LLC' mapped, but the GL sample contains no Activity rows for it (Beginning Balance only or absent). Cost is unknown, NOT zero."
+      },
+      "phases": [
+        {
+          "phase_id_estimated": "LE P1",
+          "phase_confidence": "estimated",
+          "lots_in_phase": 18,
+          "dominant_stage": "Backfill",
+          "avg_completion_pct": 0.4444,
+          "lots": [
+            {
+              "lot_number": "17",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "18",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "19",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "20",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "21",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "22",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "23",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "24",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "25",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "26",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "27",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "28",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "29",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "30",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "31",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "32",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "33",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            },
+            {
+              "lot_number": "34",
+              "stage": "Backfill",
+              "completion_pct": 0.4444,
+              "status": "in_progress",
+              "last_activity": "2026-04-16T00:00:00",
+              "source_confidence": "high"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

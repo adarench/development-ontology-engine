@@ -1,0 +1,416 @@
+{
+  "generated_at": "2026-04-30T00:27:24.674814+00:00",
+  "harness": "state_query_harness.py",
+  "deterministic": true,
+  "uses_llm": false,
+  "results": [
+    {
+      "id": "Q1",
+      "question": "What projects exist?",
+      "answer": "Three projects in the current snapshot: H A14, H MF, LE.",
+      "evidence": [
+        {
+          "project_code": "H A14",
+          "total_lots": 1,
+          "avg_completion_pct": 0.5556,
+          "stage_distribution": "Spec:1"
+        },
+        {
+          "project_code": "H MF",
+          "total_lots": 3,
+          "avg_completion_pct": 0.3333,
+          "stage_distribution": "(none):1|Backfill:1|Spec:1"
+        },
+        {
+          "project_code": "LE",
+          "total_lots": 18,
+          "avg_completion_pct": 0.4444,
+          "stage_distribution": "Backfill:18"
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "All three project_code values are parsed from real ClickUp task names with 100% parse rate.",
+      "sources": [
+        "project_state_real.csv",
+        "operating_state_v1.json"
+      ],
+      "missing": "None for this question."
+    },
+    {
+      "id": "Q2",
+      "question": "Which lots are currently stuck?",
+      "answer": "All 18 active LE lots (LE 17\u201334) are sitting at Backfill \u2014 the entire cohort is paused at the Backfill\u2192Spec handoff.",
+      "evidence": [
+        {
+          "lot_number": 17,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 18,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 19,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 20,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 21,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 22,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 23,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 24,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 25,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 26,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 27,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 28,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 29,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 30,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 31,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 32,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 33,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        },
+        {
+          "lot_number": 34,
+          "stage": "Backfill",
+          "completion_pct": 0.4444,
+          "status": "in_progress"
+        }
+      ],
+      "confidence": "high (lot identity + current stage); estimated (phase grouping)",
+      "confidence_notes": "Lot identity and current_stage parsed from real ClickUp data. Phase 'LE P1' is heuristic.",
+      "sources": [
+        "operating_view_v1.csv",
+        "lot_state_real.csv"
+      ],
+      "missing": "ClickUp start_date / date_done populated per task \u2014 would let us measure how long the cohort has been at Backfill and confirm bottleneck duration."
+    },
+    {
+      "id": "Q3",
+      "question": "Which project appears to have the biggest operational bottleneck?",
+      "answer": "LE. 18 lots in estimated phase LE P1 are stuck at Backfill (44.4% avg complete). The size of the cohort and uniform completion percentage strongly suggest a single handoff blocker.",
+      "evidence": [
+        {
+          "project_code": "LE",
+          "phase_id_estimated": "LE P1",
+          "lots_in_phase": 18,
+          "dominant_stage": "Backfill",
+          "avg_completion_pct": 0.4444
+        }
+      ],
+      "confidence": "high (cohort + stage); estimated (phase identifier)",
+      "confidence_notes": "Detection is deterministic. The fact that 18 lots show identical completion is itself strong evidence of a coordinated stall.",
+      "sources": [
+        "operating_state_v1.json"
+      ],
+      "missing": "Stage-duration data (start_date / date_done) would tell us how long this has been the case."
+    },
+    {
+      "id": "Q4",
+      "question": "Which projects have financial coverage?",
+      "answer": "2 of 3 projects have GL Activity rows: H A14, H MF.",
+      "evidence": [
+        {
+          "project_code": "H A14",
+          "gl_entity": "Flagborough LLC",
+          "total_cost": 66814.0,
+          "confidence": "high"
+        },
+        {
+          "project_code": "H MF",
+          "gl_entity": "Flagborough LLC",
+          "total_cost": 66814.0,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "Cost is the absolute-value sum of GL Activity rows for the mapped entity.",
+      "sources": [
+        "operating_state_v1.json",
+        "financials_normalized.csv"
+      ],
+      "missing": "GL re-export with Class / Customer:Job would let us split this project-level cost into phase- or lot-level cost."
+    },
+    {
+      "id": "Q5",
+      "question": "Which projects are missing financials?",
+      "answer": "LE. Cost is unknown, NOT zero.",
+      "evidence": [
+        {
+          "project_code": "LE",
+          "gl_entity": "Anderson Geneva LLC",
+          "reason": "GL entity 'Anderson Geneva LLC' mapped, but the GL sample contains no Activity rows for it (Beginning Balance only or absent). Cost is unknown, NOT zero."
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "We are highly confident the financials are missing from the sample, not that the project has no spend.",
+      "sources": [
+        "operating_state_v1.json",
+        "financials_normalized.csv"
+      ],
+      "missing": "Anderson Geneva LLC Activity rows in the GL export."
+    },
+    {
+      "id": "Q6",
+      "question": "Which lots are low confidence?",
+      "answer": "2 low-confidence lot(s): H MF 31, H MF 77. These are bare parent rows in ClickUp with no associated child tasks.",
+      "evidence": [
+        {
+          "project_code": "H MF",
+          "phase_id_estimated": "H MF P1",
+          "lot_number": "31",
+          "stage": "Spec",
+          "status": "in_progress"
+        },
+        {
+          "project_code": "H MF",
+          "phase_id_estimated": "H MF P2",
+          "lot_number": "77",
+          "stage": null,
+          "status": "not_started"
+        }
+      ],
+      "confidence": "high (classification is deterministic)",
+      "confidence_notes": "Confidence rule: real ClickUp parent_id + \u22652 stages = high; real id + \u22651 stage = medium; fallback key = low.",
+      "sources": [
+        "operating_state_v1.json",
+        "lot_state_real.csv"
+      ],
+      "missing": "Child task rows for these lots \u2014 once present, lots auto-promote."
+    },
+    {
+      "id": "Q7",
+      "question": "What can we trust in this state?",
+      "answer": "Lot identity, current stage, completion %, stage distribution, and stage-progression validity. All five are derived from observed data with deterministic rules; none rely on inference.",
+      "evidence": [
+        {
+          "claim": "lot identity (project_code + lot_number)",
+          "tier": "high",
+          "n": 22,
+          "source": "parsed from real ClickUp task names; 100% parse rate"
+        },
+        {
+          "claim": "current stage of each lot",
+          "tier": "high",
+          "n": 22,
+          "source": "observed; 81% of task rows mapped to canonical stage"
+        },
+        {
+          "claim": "completion %",
+          "tier": "high",
+          "n": 22,
+          "source": "computed deterministically from stage rank"
+        },
+        {
+          "claim": "stage distribution per project",
+          "tier": "high",
+          "n": 3,
+          "source": "aggregated from per-lot data"
+        },
+        {
+          "claim": "valid stage progression flag",
+          "tier": "high",
+          "n": 19,
+          "source": "lots whose stages_present form a contiguous sequence from rank 1"
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "All claims here are derived from observed data with deterministic rules.",
+      "sources": [
+        "operating_state_v1.json",
+        "lot_state_real.csv",
+        "project_state_real.csv"
+      ],
+      "missing": "\u2014"
+    },
+    {
+      "id": "Q8",
+      "question": "What is estimated?",
+      "answer": "Phase identifiers are estimated (heuristic clustering). Per-lot cost and stage durations are NOT computed \u2014 they are deliberately omitted because the underlying signal does not exist in the inputs.",
+      "evidence": [
+        {
+          "field": "phase_id_estimated",
+          "tier": "estimated",
+          "method": "gap-based clustering on lot_number (gap \u2265 10 starts a new phase)",
+          "scope": "4 phases across 3 projects"
+        },
+        {
+          "field": "phase_confidence",
+          "tier": "estimated",
+          "method": "fixed string 'estimated' for every phase",
+          "scope": "all phases"
+        },
+        {
+          "field": "per-lot cost",
+          "tier": "unavailable (NOT computed)",
+          "method": "GL has no lot-level signal; not derived",
+          "scope": "all lots"
+        },
+        {
+          "field": "stage durations",
+          "tier": "unavailable (NOT computed)",
+          "method": "ClickUp start_date / date_done populated 0\u20131% in sample",
+          "scope": "all lots"
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "Each estimated field is labeled in operating_state_v1.json so consumers cannot accidentally treat it as ground truth.",
+      "sources": [
+        "operating_state_v1.json",
+        "phase_state_real.csv"
+      ],
+      "missing": "See Q9."
+    },
+    {
+      "id": "Q9",
+      "question": "What data do we need next to upgrade v1 to v2?",
+      "answer": "Five inputs: (1) full ClickUp export, (2) plat\u2192phase\u2192lot reference, (3) GL with Class/Customer:Job/TxID/Vendor/Memo, (4) Anderson Geneva Activity rows, (5) ClickUp stage timestamps. With these, v1 \u2192 v2 needs no architecture changes \u2014 just better input.",
+      "evidence": [
+        {
+          "ask": "Full ClickUp export (not 100-row preview)",
+          "unlocks": "complete lot inventory; same parser handles full volume"
+        },
+        {
+          "ask": "Plat \u2192 phase \u2192 lot reference table",
+          "unlocks": "replaces phase_id_estimated with named plat phases (A4, B2, etc.)"
+        },
+        {
+          "ask": "GL re-export with Class, Customer:Job, Transaction ID, Vendor, Memo",
+          "unlocks": "moves cost visibility from project level to phase- or lot-level"
+        },
+        {
+          "ask": "Anderson Geneva LLC Activity rows in GL",
+          "unlocks": "LE financials become measurable instead of $0 placeholder"
+        },
+        {
+          "ask": "ClickUp start_date and date_done per task",
+          "unlocks": "stage durations, true bottleneck quantification"
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "Scope is well-defined; each ask maps to specific code paths already in place.",
+      "sources": [
+        "operating_state_v1_validation_memo.md",
+        "state_quality_report_v1.md"
+      ],
+      "missing": "\u2014"
+    },
+    {
+      "id": "Q10",
+      "question": "What would change if we received a plat \u2192 phase \u2192 lot table?",
+      "answer": "Phase identity becomes ground truth. The heuristic in phase_state.py is replaced by a join; phase_id_estimated \u2192 real phase_id; phase_confidence \u2192 'high' across the board. Everything else (lots, stages, completion, status, financial coverage) is unaffected \u2014 those don't depend on phase identity.",
+      "evidence": [
+        {
+          "impact": "phase_id_estimated \u2192 real phase_id",
+          "before": "4 heuristic phases",
+          "after": "named plat phases sourced from authoritative table"
+        },
+        {
+          "impact": "phase_confidence",
+          "before": "'estimated' on every phase",
+          "after": "'high' on every phase"
+        },
+        {
+          "impact": "lot \u2192 phase membership",
+          "before": "approximate (gap-based)",
+          "after": "exact (lookup join on lot_number)"
+        },
+        {
+          "impact": "code change required",
+          "before": "\u2014",
+          "after": "replace assign_phases() in phase_state.py with a left-join on the new table"
+        },
+        {
+          "impact": "downstream artifacts",
+          "before": "\u2014",
+          "after": "operating_view_v1.csv, lot_state_real.csv, operating_state_v1.json all regenerate with real phase IDs; no schema changes"
+        },
+        {
+          "impact": "what does NOT change",
+          "before": "\u2014",
+          "after": "lot identity, current stage, completion %, status, financial coverage (those don't depend on phase identity)"
+        }
+      ],
+      "confidence": "high",
+      "confidence_notes": "Hypothetical but tightly bounded: only one function changes.",
+      "sources": [
+        "phase_state.py",
+        "operating_state_v1.json"
+      ],
+      "missing": "\u2014"
+    }
+  ]
+}

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>BCPD Operating State v2.1 — Architecture</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --fg: #1a1a1a;
+    --fg-muted: #555;
+    --bg: #fff;
+    --bg-soft: #f8f8f8;
+    --border: #ddd;
+    --accent: #603090;
+    --warn: #a00000;
+    --good: #2a7a2a;
+    --max-width: 1100px;
+  }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    margin: 0; padding: 32px 24px 80px;
+    max-width: var(--max-width); margin-left: auto; margin-right: auto;
+  }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 22px; margin: 32px 0 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+  h2:first-of-type { border-top: 0; padding-top: 0; }
+  h3 { font-size: 17px; margin: 20px 0 6px; color: var(--fg-muted); }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 20px; }
+  li { margin: 4px 0; }
+  table { border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--bg-soft); }
+  td.num { text-align: right; }
+  code { font: 13px/1.4 ui-monospace, "SF Mono", Monaco, Menlo, Consolas, monospace;
+         background: var(--bg-soft); padding: 1px 5px; border-radius: 3px; }
+  pre code { background: transparent; padding: 0; }
+  pre { background: var(--bg-soft); padding: 12px; border-radius: 4px; overflow-x: auto; }
+  blockquote { border-left: 3px solid var(--accent); padding: 4px 16px;
+               margin: 12px 0; color: var(--fg-muted); }
+  .meta { color: var(--fg-muted); font-size: 14px; }
+  .mermaid { background: var(--bg-soft); padding: 12px; border-radius: 6px; margin: 12px 0; overflow-x: auto; }
+  .callout {
+    border-left: 4px solid var(--accent); padding: 12px 16px;
+    background: var(--bg-soft); border-radius: 4px; margin: 16px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.good { border-left-color: var(--good); }
+  .legend { font-size: 13px; color: var(--fg-muted); margin-top: -8px; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+  @media print {
+    body { font-size: 11pt; padding: 12px; max-width: none; }
+    h2 { break-before: page; }
+    .mermaid { break-inside: avoid; }
+  }
+</style>
+<!-- Mermaid v10 from CDN; renders the diagrams client-side -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.mermaid) {
+      window.mermaid.initialize({
+        startOnLoad: true,
+        theme: 'neutral',
+        flowchart: { curve: 'basis', padding: 16 },
+        securityLevel: 'loose',
+      });
+    }
+  });
+</script>
+</head>
+<body>
+
+<h1>BCPD Operating State v2.1 — Architecture</h1>
+<p class="meta">
+  <strong>Audience</strong>: Internal Flagship / BCPD team plus technical reviewers.
+  <strong>Generated</strong>: 2026-05-01.
+  <strong>Source</strong>: <code>docs/bcpd_operating_state_architecture.md</code>
+  + <code>docs/bcpd_operating_state_architecture.mmd</code>.
+</p>
+
+<div class="callout">
+  <strong>Plain English summary.</strong> We take raw extracts from DataRails, QuickBooks, ClickUp,
+  the inventory closing report, the collateral reports, and the allocation workbooks; normalize them;
+  reconcile their different vocabularies into a small set of canonical business entities
+  (LegalEntity, Project, Phase, Lot, FinancialTransaction, etc.); and publish a single versioned
+  JSON — <code>operating_state_v2_1_bcpd.json</code> — that an agent or human can query with
+  <strong>confidence labels, caveats, and refusals built in</strong>.
+  The system is read-only at the agent layer. It does not write back to source systems. It does not
+  invent numbers. When a question can't be answered safely, the agent layer <strong>refuses</strong>
+  rather than fabricating. The system is <strong>BCPD-only</strong>; org-wide rollups are explicitly
+  out of scope.
+</div>
+
+<h2>Main architecture diagram</h2>
+
+<div class="mermaid">
+flowchart TD
+    classDef source fill:#fff7e0,stroke:#a07a00,color:#000
+    classDef stage fill:#e0f0ff,stroke:#0066aa,color:#000
+    classDef logic fill:#dde8ff,stroke:#0066aa,color:#000,stroke-dasharray:3 3
+    classDef xwalk fill:#fff0f5,stroke:#a04060,color:#000
+    classDef canon fill:#e8f5e8,stroke:#2a7a2a,color:#000
+    classDef state fill:#f0e8ff,stroke:#603090,color:#000
+    classDef agent fill:#ffe8e0,stroke:#a04020,color:#000
+
+    subgraph S1 [1 Source files and systems]
+        direction LR
+        SRC_DR[DataRails GL<br/>monthly extracts<br/>2016-2025]:::source
+        SRC_VF[Vertical Financials<br/>BCPD lot-level<br/>cost basis 2018-2025]:::source
+        SRC_QB[QuickBooks Register<br/>2025 vendor and cash]:::source
+        SRC_INV[Inventory Closing Report<br/>active + closed lots]:::source
+        SRC_COL[Collateral Reports<br/>Dec 2025 + prior]:::source
+        SRC_ALL[Allocation Workbooks<br/>LH, Parkway, Flagship v3]:::source
+        SRC_CK[ClickUp Tasks<br/>5,509 total<br/>1,177 lot-tagged]:::source
+    end
+
+    subgraph S2 [2 Staging and normalization]
+        direction LR
+        STG_GL[staged_gl_transactions_v2<br/>210,440 rows<br/>3 schemas normalized]:::stage
+        STG_DEDUP[/DataRails dedup<br/>2.16x row-multiplication<br/>artifact removed/]:::logic
+        STG_DEC[/VF lot-code decoder v1<br/>infers phase + lot from<br/>VF lot string/]:::logic
+        STG_INV[staged_inventory_lots<br/>3,872 rows<br/>ACTIVE / CLOSED / PROJECTED]:::stage
+        STG_CK[staged_clickup_tasks<br/>lot-tagged filter]:::stage
+        STG_COLA[collateral and allocation<br/>source profiles]:::stage
+    end
+
+    subgraph S3 [3 Crosswalks - translation between source vocabularies]
+        direction LR
+        XW_E[entity crosswalk<br/>13 mappings]:::xwalk
+        XW_P[project crosswalk<br/>142 mappings<br/>VF/DR codes vs subdivs]:::xwalk
+        XW_PH[phase crosswalk<br/>385 mappings]:::xwalk
+        XW_L[lot crosswalk<br/>14,537 rows]:::xwalk
+        XW_EX[Examples:<br/>PWFS2 to Parkway Fields B2<br/>SctLot to Scattered Lots<br/>not Scarlet Ridge<br/>HarmCo A01-B10 to MF2 residential<br/>range rows to project+phase grain]:::xwalk
+    end
+
+    subgraph S4 [4 Canonical business entities]
+        direction LR
+        CAN_LE[LegalEntity<br/>BCPD, BCPBL, ASD, BCPI]:::canon
+        CAN_PR[Project / Community]:::canon
+        CAN_PH[Phase / Plat]:::canon
+        CAN_LOT[Lot]:::canon
+        CAN_FT[FinancialTransaction]:::canon
+        CAN_AC[Account / CostCategory]:::canon
+        CAN_INV[InventorySnapshot]:::canon
+        CAN_COL[CollateralSnapshot]:::canon
+        CAN_TS[TaskState]:::canon
+        CAN_AL[Allocation / Budget]:::canon
+    end
+
+    subgraph S5 [5 Operating State v2.1]
+        direction LR
+        ST_JSON[operating_state_v2_1_bcpd.json<br/>26 projects, 5,366 lots in body]:::state
+        ST_QR[state_quality_report_v2_1_bcpd.md<br/>per-field fill rate + confidence]:::state
+        ST_QE[state_query_examples_v2_1_bcpd.md]:::state
+        ST_CL[v2_0_to_v2_1_change_log.md]:::state
+        ST_CONF[Every value carries:<br/>source_confidence, caveats, source_files]:::state
+    end
+
+    subgraph S6 [6 Agent / read-only Q and A layer]
+        direction LR
+        AG_CTX[agent_context_v2_1_bcpd.md<br/>5 enforced rules]:::agent
+        AG_QA[bcpd_state_qa harness<br/>15 fixed questions<br/>deterministic, no API]:::agent
+        AG_OUT[Every answer:<br/>direct_answer + evidence + confidence<br/>+ caveats + source_files<br/>+ cannot_conclude]:::agent
+    end
+
+    SRC_DR --> STG_GL
+    SRC_VF --> STG_GL
+    SRC_QB --> STG_GL
+    STG_GL --> STG_DEDUP
+    STG_GL --> STG_DEC
+    SRC_INV --> STG_INV
+    SRC_CK --> STG_CK
+    SRC_COL --> STG_COLA
+    SRC_ALL --> STG_COLA
+
+    STG_GL --> XW_E
+    STG_GL --> XW_P
+    STG_DEC --> XW_P
+    STG_INV --> XW_P
+    STG_INV --> XW_PH
+    STG_INV --> XW_L
+    STG_CK --> XW_P
+    STG_COLA --> XW_P
+
+    XW_E --> CAN_LE
+    XW_P --> CAN_PR
+    XW_PH --> CAN_PH
+    XW_L --> CAN_LOT
+    STG_GL --> CAN_FT
+    STG_DEDUP --> CAN_FT
+    STG_GL --> CAN_AC
+    STG_INV --> CAN_INV
+    STG_COLA --> CAN_COL
+    STG_CK --> CAN_TS
+    STG_COLA --> CAN_AL
+
+    CAN_LE --> ST_JSON
+    CAN_PR --> ST_JSON
+    CAN_PH --> ST_JSON
+    CAN_LOT --> ST_JSON
+    CAN_FT --> ST_JSON
+    CAN_INV --> ST_JSON
+    CAN_COL --> ST_JSON
+    CAN_TS --> ST_JSON
+    CAN_AL --> ST_JSON
+    CAN_AC --> ST_JSON
+
+    ST_JSON --> AG_CTX
+    ST_JSON --> AG_QA
+    ST_QR --> AG_CTX
+    ST_QE --> AG_QA
+    AG_CTX --> AG_OUT
+    AG_QA --> AG_OUT
+</div>
+
+<p class="legend">
+  Color legend: <span style="background:#fff7e0;padding:1px 6px;border:1px solid #a07a00">sources</span>
+  <span style="background:#e0f0ff;padding:1px 6px;border:1px solid #0066aa">staging</span>
+  <span style="background:#fff0f5;padding:1px 6px;border:1px solid #a04060">crosswalks</span>
+  <span style="background:#e8f5e8;padding:1px 6px;border:1px solid #2a7a2a">canonical entities</span>
+  <span style="background:#f0e8ff;padding:1px 6px;border:1px solid #603090">operating state</span>
+  <span style="background:#ffe8e0;padding:1px 6px;border:1px solid #a04020">agent layer</span>
+</p>
+
+<h2>Layer-by-layer</h2>
+
+<ol>
+  <li><strong>Source files and systems</strong> — the original extracts as they arrive from upstream tools. We do not edit these. They live under <code>data/raw/</code>.</li>
+  <li><strong>Staging and normalization</strong> — Python pipelines that read the raw files and produce stable parquet/CSV under <code>data/staged/</code>. Two pieces of logic deserve callouts:
+    <ul>
+      <li><strong>DataRails dedup</strong>: DR 38-col carries every posting line 2-3 times consecutively (2.16× multiplicity). Naive sum is wrong by ~2×; the build pipeline deduplicates on a 9-field canonical key. Raw <code>staged_gl_transactions_v2.parquet</code> is preserved unchanged.</li>
+      <li><strong>VF lot-code decoder v1</strong>: VF's <code>lot</code> field encodes phase + lot in a single string for some projects (Harmony VF lot <code>1034</code> ≠ inventory Harmony lot 1034). The decoder routes lot strings to <code>(canonical_phase, canonical_lot_number)</code>. All decoder rules ship <code>confidence='inferred'</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Crosswalks</strong> — translation tables that map source values to canonical names. <code>PWFS2</code>, <code>Park Way</code>, <code>PARKWAY</code>, and <code>Parkway Fields</code> all refer to one community. The crosswalk is the single place that resolution lives. Every row carries a <code>confidence</code> column.</li>
+  <li><strong>Canonical business entities</strong> — a small graph (LegalEntity, Project, Phase, Lot, FinancialTransaction, Account, CostCategory, InventorySnapshot, CollateralSnapshot, TaskState, Allocation). Every canonical row carries <code>source_confidence</code> (worst-link of contributing fields).</li>
+  <li><strong>Operating State v2.1</strong> — <code>operating_state_v2_1_bcpd.json</code> is the canonical state document; three companion markdown files document field quality, worked queries, and the v2.0→v2.1 deltas.</li>
+  <li><strong>Agent / read-only Q&A layer</strong> — <code>agent_context_v2_1_bcpd.md</code> grounds the agent; <code>bcpd_state_qa</code> is a deterministic harness that answers 15 fixed questions with 10 enforced guardrails. Every answer carries direct_answer, evidence, confidence, caveats, source_files_used, and a <code>cannot_conclude</code> flag for refusals.</li>
+</ol>
+
+<h2>Why project + phase + lot matters</h2>
+
+<p>In some BCPD projects, <strong>the same lot number appears in multiple phases</strong>. Joining cost rollups on <code>(project, lot)</code> alone collapses different physical lots onto one inventory row.</p>
+
+<p>The clearest example is <strong>Harmony</strong>: lot numbers 101–116 exist in two distinct phases — <code>MF1</code> (multi-family / townhomes) and <code>B1</code> (single-family). They are two different physical assets that happen to share a lot number. v2.0 used a flat <code>(project, lot)</code> join. v2.1 enforces the 3-tuple <code>(project, phase, lot)</code>. The fix prevents a known <strong>~$6.75M double-count risk</strong> on Harmony alone.</p>
+
+<div class="mermaid">
+flowchart LR
+    classDef wrong fill:#ffe0e0,stroke:#c00,color:#000
+    classDef right fill:#e0ffe8,stroke:#2a7a2a,color:#000
+    classDef key fill:#fff,stroke:#666,color:#000
+    classDef inv fill:#f0f0f0,stroke:#333,color:#000
+
+    subgraph WRONG [v2.0 - flat project + lot join - WRONG]
+        direction TB
+        W1[GL Harm3 lot 0101<br/>344K - really phase B1]:::wrong
+        W2[GL HarmTo lot 0101<br/>99K - really phase MF1]:::wrong
+        WK{join key:<br/>Harmony, lot 101}:::key
+        W3[Inventory Harmony lot 101<br/>443K attributed - WRONG<br/>~6.75M project-wide error]:::wrong
+        W1 --> WK
+        W2 --> WK
+        WK --> W3
+    end
+
+    subgraph RIGHT [v2.1 - 3-tuple project + phase + lot - CORRECT]
+        direction TB
+        R1[GL Harm3 lot 0101<br/>decoded phase=B1]:::right
+        R2[GL HarmTo lot 0101<br/>decoded phase=MF1]:::right
+        RK1{join key:<br/>Harmony, B1, 101}:::key
+        RK2{join key:<br/>Harmony, MF1, 101}:::key
+        R3[Inventory<br/>Harmony B1 lot 101<br/>344K]:::inv
+        R4[Inventory<br/>Harmony MF1 lot 101<br/>99K]:::inv
+        R1 --> RK1
+        R2 --> RK2
+        RK1 --> R3
+        RK2 --> R4
+    end
+</div>
+
+<p>The 3-tuple discipline is enforced at three points in v2.1:</p>
+<ul>
+  <li>The VF lot-code decoder emits <code>(phase, lot_number)</code> per row.</li>
+  <li>Every lot in the JSON carries <code>vf_actual_cost_3tuple_usd</code> computed at the 3-tuple, plus <code>vf_actual_cost_join_key</code> as a constant string declaring the contract.</li>
+  <li>The agent context lists "Harmony joins require project + phase + lot" as Rule 4, and the Q&A harness has a guardrail (<code>harmony_3tuple_required</code>) that fires whenever a question asks about Harmony cost.</li>
+</ul>
+
+<p>This is not a Harmony-only rule — it is the project-wide policy in v2.1. Harmony is where the discipline is <em>visible</em>; in other projects, lot-number collisions don't currently occur but the same key is used so future surprises are avoided.</p>
+
+<h2>What changed in v2.1</h2>
+
+<p>v2.1 fixes five known correctness defects in v2.0. The state file is <strong>additive</strong> — v2.0 outputs remain in place; v2.1 sits alongside until consumers migrate.</p>
+
+<table>
+<thead><tr><th>Change</th><th>What it fixes</th><th>Scope</th></tr></thead>
+<tbody>
+<tr><td><strong>AultF B-suffix corrected</strong></td><td>$4.0M / 1,499 rows rerouted from B2 to B1. AultF and PWFS2 B-suffix lot ranges are disjoint in the actual GL data — AultF max=211 (matches B1), PWFS2 min=273 (B2). v2.0 routed to B2 by mistake.</td><td>Parkway Fields</td></tr>
+<tr><td><strong>Harmony 3-tuple join discipline</strong></td><td>Prevents ~$6.75M double-count risk where MF1 and B1 share lot numbers 101–116. v2.0 used flat (project, lot).</td><td>Harmony (rule applies project-wide)</td></tr>
+<tr><td><strong>SctLot → Scattered Lots</strong></td><td>Removes $6.55M of silent inflation from Scarlet Ridge (~46% of its project-grain cost). SctLot is interpreted as scattered/custom-build lots based on invoice ID patterns, vendor mix, and zero overlap with ScaRdg lots. Confidence stays <code>inferred-unknown</code>.</td><td>Scarlet Ridge / Scattered Lots (new project)</td></tr>
+<tr><td><strong>Range / shell rows surfaced at project + phase grain</strong></td><td>$45.75M / 4,020 rows of shared-shell and shared-infrastructure costs (lot strings like <code>'3001-06'</code>) are no longer silently mixed into per-lot rollups. Appear as <code>vf_unattributed_shell_dollars</code> per phase.</td><td>8 VF codes: HarmTo, LomHT1, PWFT1, ArroT1, MCreek, SaleTT, SaleTR, WilCrk</td></tr>
+<tr><td><strong>Commercial parcels isolated from residential LotState</strong></td><td>11 HarmCo X-X parcels (<code>0000A-A</code>–<code>0000K-K</code>, 205 rows / ~$2.6M) tracked under <code>commercial_parcels_non_lot</code> per project, not under residential <code>phases.lots</code>.</td><td>Harmony</td></tr>
+<tr><td><strong>Decoder-derived mappings remain inferred</strong></td><td>Every rule ships <code>confidence='inferred'</code> and <code>validated_by_source_owner=False</code>. v2.1 is strictly more accurate than v2.0 even at <code>inferred</code> confidence.</td><td>All decoder-derived per-lot cost</td></tr>
+</tbody></table>
+
+<p>Coverage: GL 63.0% → 67.2% (+4.2pp, 54 lots); full triangle 37.0% → 37.2%. <strong>The binary delta is modest; the win is correctness.</strong></p>
+
+<h2>Guardrails</h2>
+
+<p>These are <strong>enforced</strong> at the agent layer and <strong>assumed</strong> by every downstream consumer. They are constraints on what the system will and will not say.</p>
+
+<table>
+<thead><tr><th>#</th><th>Rule</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><strong>BCPD-only</strong></td><td>Covers BCPD + BCPBL + ASD + BCPI. Does NOT cover Hillcrest, Flagship Belmont, Lennar, or external customers.</td></tr>
+<tr><td>2</td><td><strong>Missing cost is missing, not zero</strong></td><td>A project or lot with no GL row has cost=<code>unknown</code>/<code>null</code>, never $0.</td></tr>
+<tr><td>3</td><td><strong>Org-wide v2 is blocked</strong></td><td>Hillcrest and Flagship Belmont have GL only through 2017-02. Refused at the agent layer.</td></tr>
+<tr><td>4</td><td><strong>Range / shell rows are NOT lot-level cost</strong></td><td>$45.75M lives at project+phase grain via <code>vf_unattributed_shell_dollars</code>. Do not allocate to specific lots without source-owner sign-off.</td></tr>
+<tr><td>5</td><td><strong>Harmony joins require project + phase + lot</strong></td><td>Flat (project, lot) collapses MF1 and B1 lot 101 onto one inventory row.</td></tr>
+<tr><td>6</td><td><strong>Inferred decoder rules are not source-owner-validated</strong></td><td>Every per-lot VF cost via the v1 decoder ships <code>confidence='inferred'</code>.</td></tr>
+<tr><td>7</td><td><strong>DataRails raw sums are unsafe without dedup</strong></td><td>DR 38-col is 2.16× row-multiplied at source.</td></tr>
+<tr><td>8</td><td><strong>QB Register is tie-out only</strong></td><td>Different chart of accounts (zero overlap with VF/DR). Use only for 2025 BCPD vendor / cash queries.</td></tr>
+<tr><td>9</td><td><strong>Vertical Financials is one-sided</strong></td><td>Asset-side debits only (3 account codes). Canonical lot-level cost basis; not a balanced trial balance.</td></tr>
+<tr><td>10</td><td><strong>Read-only at the agent layer</strong></td><td>Q&A harness does not write back to source/staged/v1/v2.0/v2.1 files. Verified by <code>tests/test_bcpd_state_qa_readonly.py</code>.</td></tr>
+</tbody></table>
+
+<p>The 15 fixed Q&A questions exercise these guardrails. Q7 (org-wide actuals) is the canonical refusal example: the harness returns <code>cannot_conclude=True</code> rather than fabricating a number.</p>
+
+<h2>What this is <em>not</em></h2>
+<ul>
+  <li><strong>Not a dashboard.</strong> No HTML pages of charts ship with v2.1. The deliverable is a JSON document, several markdown contexts, and a deterministic Q&A harness.</li>
+  <li><strong>Not a data warehouse.</strong> No SQL engine, no OLAP cube, no incremental ingestion. Pipelines are batch scripts.</li>
+  <li><strong>Not org-wide.</strong> Out of scope by design. See guardrail 1.</li>
+  <li><strong>Not a complete picture.</strong> 7 active BCPD projects + Lewis Estates have inventory but no GL — their cost is <code>unknown</code>. The 2017-03 → 2018-06 GL gap (15 months, zero rows) cannot be closed from the current dump. Structural gaps, not v2.1 defects.</li>
+  <li><strong>Not source-owner-validated</strong> at the decoder level. Every decoder-derived per-lot cost is <code>inferred</code>.</li>
+</ul>
+
+<h2>What this <em>is</em></h2>
+<ul>
+  <li>A source-backed operating-state layer with explicit confidence, caveats, and source provenance for every value.</li>
+  <li>A safe substrate for AI agents and automation. The agent context's enforced rules + the harness's guardrails mean an LLM has no excuse to invent numbers, conflate phases, or report missing cost as zero.</li>
+  <li>A reproducible, deterministic pipeline. Re-running on the same inputs produces identical outputs.</li>
+  <li>An additive system. v0, v1, and v2.0 outputs are preserved unchanged. v2.1 sits alongside.</li>
+</ul>
+
+<hr/>
+
+<p class="meta">For PDF: open this HTML in a browser and use <strong>File → Print → Save as PDF</strong>. The print stylesheet sets each layer to a new page.</p>
+</body>
+</html>

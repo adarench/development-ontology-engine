@@ -1,0 +1,1613 @@
+{
+  "state_version": "v2.1",
+  "generated_at": "2026-05-04",
+  "chunk_count": 44,
+  "counts_by_type": {
+    "projects": 18,
+    "coverage": 5,
+    "cost_sources": 6,
+    "guardrails": 8,
+    "sources": 7
+  },
+  "chunks": [
+    {
+      "chunk_id": "cost_source_commercial_parcels",
+      "path": "cost_sources/cost_source_commercial_parcels.md",
+      "title": "Cost source: HarmCo commercial parcels (non-lot inventory)",
+      "chunk_type": "cost_source",
+      "project": "Harmony",
+      "source_files": [
+        "scratch/vf_decoder_ops_allocation_review.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "commercial",
+        "cost",
+        "cost_source",
+        "harmco",
+        "harmony",
+        "inventory",
+        "lot",
+        "non",
+        "parcels",
+        "source"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Commercial parcels are NOT residential lots; not in LotState."
+      ],
+      "allowed_uses": [
+        "RAG grounding for Harmony commercial-parcel questions"
+      ]
+    },
+    {
+      "chunk_id": "cost_source_datarails_38col_dedup",
+      "path": "cost_sources/cost_source_datarails_38col_dedup.md",
+      "title": "Cost source: DataRails 38-col (BCPD 2016-17 \u2014 dedup mandatory)",
+      "chunk_type": "cost_source",
+      "project": null,
+      "source_files": [
+        "scratch/gl_financials_findings.md",
+        "data/staged/staged_gl_transactions_v2_validation_report.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "2016",
+        "bcpd",
+        "col",
+        "cost",
+        "cost_source",
+        "datarails",
+        "dedup",
+        "mandatory",
+        "source"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Raw DR sums are wrong by ~2x without dedup."
+      ],
+      "allowed_uses": [
+        "RAG grounding for BCPD 2016-17 cost questions"
+      ]
+    },
+    {
+      "chunk_id": "cost_source_missing_cost_is_not_zero",
+      "path": "cost_sources/cost_source_missing_cost_is_not_zero.md",
+      "title": "Cost source: Missing cost is missing, not zero",
+      "chunk_type": "cost_source",
+      "project": null,
+      "source_files": [
+        "output/agent_context_v2_1_bcpd.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "cost",
+        "cost_source",
+        "missing",
+        "not",
+        "source",
+        "zero"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "lot_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Hard rule; never violated."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal of cost-estimation queries on no-GL projects"
+      ]
+    },
+    {
+      "chunk_id": "cost_source_qb_register_tieout_only",
+      "path": "cost_sources/cost_source_qb_register_tieout_only.md",
+      "title": "Cost source: QB Register (tie-out only)",
+      "chunk_type": "cost_source",
+      "project": null,
+      "source_files": [
+        "scratch/gl_financials_findings.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "cost",
+        "cost_source",
+        "only",
+        "out",
+        "register",
+        "source",
+        "tie"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "lot_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Different chart of accounts; never aggregate against VF/DR."
+      ],
+      "allowed_uses": [
+        "RAG grounding for BCPD vendor / cash / AP queries on 2025"
+      ]
+    },
+    {
+      "chunk_id": "cost_source_range_shell_rows",
+      "path": "cost_sources/cost_source_range_shell_rows.md",
+      "title": "Cost source: Range / shell rows (project+phase grain)",
+      "chunk_type": "cost_source",
+      "project": null,
+      "source_files": [
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "scratch/vf_decoder_gl_finance_review.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "cost",
+        "cost_source",
+        "grain",
+        "phase",
+        "project",
+        "range",
+        "rows",
+        "shell",
+        "source"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Range rows are NEVER allocated to specific lots in v2.1."
+      ],
+      "allowed_uses": [
+        "RAG grounding for shared-shell / shared-infrastructure cost questions"
+      ]
+    },
+    {
+      "chunk_id": "cost_source_vertical_financials",
+      "path": "cost_sources/cost_source_vertical_financials.md",
+      "title": "Cost source: Vertical Financials (BCPD 2018-2025 primary)",
+      "chunk_type": "cost_source",
+      "project": null,
+      "source_files": [
+        "scratch/gl_financials_findings.md",
+        "data/reports/guardrail_check_v0.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "2018",
+        "2025",
+        "bcpd",
+        "cost",
+        "cost_source",
+        "financials",
+        "primary",
+        "source",
+        "vertical"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "guardrail_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "VF is one-sided; not a balanced trial balance."
+      ],
+      "allowed_uses": [
+        "RAG grounding for any BCPD 2018-2025 cost question"
+      ]
+    },
+    {
+      "chunk_id": "coverage_clickup_inventory",
+      "path": "coverage/coverage_clickup_inventory.md",
+      "title": "Coverage: ClickUp lot-tagged \u2194 inventory",
+      "chunk_type": "coverage",
+      "project": null,
+      "source_files": [
+        "data/reports/join_coverage_v0.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "clickup",
+        "coverage",
+        "inventory",
+        "lot",
+        "tagged"
+      ],
+      "safe_question_types": [
+        "coverage_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Lot-tagging discipline is the upstream gate; only 21% of ClickUp tasks have both subdivision and lot_num."
+      ],
+      "allowed_uses": [
+        "RAG grounding for ClickUp coverage and lot-tagging questions"
+      ]
+    },
+    {
+      "chunk_id": "coverage_full_triangle",
+      "path": "coverage/coverage_full_triangle.md",
+      "title": "Coverage: Full triangle (GL \u2227 ClickUp \u2227 inventory)",
+      "chunk_type": "coverage",
+      "project": null,
+      "source_files": [
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "clickup",
+        "coverage",
+        "full",
+        "inventory",
+        "triangle"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "lot_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Triangle requires all three data sources; missing any one drops a lot from the count."
+      ],
+      "allowed_uses": [
+        "RAG grounding for full-triangle coverage questions"
+      ]
+    },
+    {
+      "chunk_id": "coverage_gl_inventory",
+      "path": "coverage/coverage_gl_inventory.md",
+      "title": "Coverage: GL \u2194 inventory join",
+      "chunk_type": "coverage",
+      "project": null,
+      "source_files": [
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "coverage",
+        "inventory",
+        "join"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "lot_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Coverage metric is binary (\u22651 GL row per inventory lot); does not imply cost completeness."
+      ],
+      "allowed_uses": [
+        "RAG grounding for coverage / fill-rate questions"
+      ]
+    },
+    {
+      "chunk_id": "coverage_no_gl_projects",
+      "path": "coverage/coverage_no_gl_projects.md",
+      "title": "Coverage: BCPD projects with inventory but no GL",
+      "chunk_type": "coverage",
+      "project": null,
+      "source_files": [
+        "output/state_quality_report_v2_1_bcpd.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "bcpd",
+        "but",
+        "coverage",
+        "inventory",
+        "projects",
+        "with"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "lot_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for these projects; do not substitute zero."
+      ],
+      "allowed_uses": [
+        "RAG grounding for missing-cost / structural-gap questions"
+      ]
+    },
+    {
+      "chunk_id": "coverage_source_owner_validation_queue",
+      "path": "coverage/coverage_source_owner_validation_queue.md",
+      "title": "Coverage: Source-owner validation queue",
+      "chunk_type": "coverage",
+      "project": null,
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "scratch/vf_decoder_gl_finance_review.md",
+        "scratch/vf_decoder_ops_allocation_review.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "coverage",
+        "owner",
+        "queue",
+        "source",
+        "validation"
+      ],
+      "safe_question_types": [
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Items here gate confidence promotion from `inferred` to higher."
+      ],
+      "allowed_uses": [
+        "RAG grounding for 'what's still inferred' questions"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_bcpd_only",
+      "path": "guardrails/guardrail_bcpd_only.md",
+      "title": "Guardrail: BCPD-only scope",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "output/agent_context_v2_1_bcpd.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "bcpd",
+        "guardrail",
+        "only",
+        "scope"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Track B (org-wide) is a roadmap item; not v2.1."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_commercial_not_residential",
+      "path": "guardrails/guardrail_commercial_not_residential.md",
+      "title": "Guardrail: Commercial parcels are not residential lots",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "scratch/vf_decoder_ops_allocation_review.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "are",
+        "commercial",
+        "guardrail",
+        "lots",
+        "not",
+        "parcels",
+        "residential"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Tracked separately so they're visible but not double-counted into residential."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_harmony_3tuple_join",
+      "path": "guardrails/guardrail_harmony_3tuple_join.md",
+      "title": "Guardrail: Harmony joins require project + phase + lot",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "scratch/vf_decoder_gl_finance_review.md",
+        "data/reports/v2_0_to_v2_1_change_log.md",
+        "docs/bcpd_operating_state_architecture.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "guardrail",
+        "harmony",
+        "joins",
+        "lot",
+        "phase",
+        "project",
+        "require"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Rule applies project-wide; Harmony is the visible case."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_inferred_decoder_rules",
+      "path": "guardrails/guardrail_inferred_decoder_rules.md",
+      "title": "Guardrail: Decoder-derived mappings are inferred",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "data/staged/vf_lot_code_decoder_v1.csv",
+        "output/agent_context_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "are",
+        "decoder",
+        "derived",
+        "guardrail",
+        "inferred",
+        "mappings"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Inferred \u2260 low quality; just unvalidated."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_orgwide_unavailable",
+      "path": "guardrails/guardrail_orgwide_unavailable.md",
+      "title": "Guardrail: Org-wide v2 is unavailable",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "scratch/bcpd_financial_readiness.md",
+        "data/reports/guardrail_check_v0.md",
+        "output/agent_context_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "guardrail",
+        "org",
+        "unavailable",
+        "wide"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "guardrail_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Track B remains a roadmap track."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_range_rows_not_lot_level",
+      "path": "guardrails/guardrail_range_rows_not_lot_level.md",
+      "title": "Guardrail: Range / shell rows are not lot-level cost",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "scratch/vf_decoder_gl_finance_review.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "are",
+        "cost",
+        "guardrail",
+        "level",
+        "lot",
+        "not",
+        "range",
+        "rows",
+        "shell"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "$45.75M is ~13% of BCPD VF cost basis; surface separately in any total."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_read_only_qa",
+      "path": "guardrails/guardrail_read_only_qa.md",
+      "title": "Guardrail: Read-only Q&A rules",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "financials/qa/__init__.py",
+        "financials/qa/bcpd_state_qa.py",
+        "tests/test_bcpd_state_qa_readonly.py"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "guardrail",
+        "only",
+        "read",
+        "rules"
+      ],
+      "safe_question_types": [
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Optional LLM mode requires explicit API key in env; default is deterministic."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "guardrail_sctlot_scattered_lots",
+      "path": "guardrails/guardrail_sctlot_scattered_lots.md",
+      "title": "Guardrail: SctLot is Scattered Lots, not Scarlet Ridge",
+      "chunk_type": "guardrail",
+      "project": null,
+      "source_files": [
+        "scratch/vf_decoder_gl_finance_review.md",
+        "data/reports/v2_0_to_v2_1_change_log.md",
+        "output/operating_state_v2_1_bcpd.json"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "guardrail",
+        "lots",
+        "not",
+        "ridge",
+        "scarlet",
+        "scattered",
+        "sctlot"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Canonical name not source-owner-validated.",
+        "Lot 0639 is an outlier; specifically inferred-unknown."
+      ],
+      "allowed_uses": [
+        "RAG grounding for refusal / caveat decisions",
+        "Anchor for any answer that touches this guardrail's scope"
+      ]
+    },
+    {
+      "chunk_id": "project_ammon",
+      "path": "projects/project_ammon.md",
+      "title": "Project: Ammon",
+      "chunk_type": "project",
+      "project": "Ammon",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "ammon",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_arrowhead_springs",
+      "path": "projects/project_arrowhead_springs.md",
+      "title": "Project: Arrowhead Springs",
+      "chunk_type": "project",
+      "project": "Arrowhead Springs",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "data/staged/vf_lot_code_decoder_v1.csv",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "arrowhead",
+        "project",
+        "springs"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Per-lot cost is `inferred` (decoder-derived; not source-owner-validated).",
+        "Range / shell rows for this project, if any, are kept at project+phase grain via `vf_unattributed_shell_dollars` \u2014 not allocated to specific lots."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Citing per-project cost with explicit `inferred` confidence label"
+      ]
+    },
+    {
+      "chunk_id": "project_cedar_glen",
+      "path": "projects/project_cedar_glen.md",
+      "title": "Project: Cedar Glen",
+      "chunk_type": "project",
+      "project": "Cedar Glen",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "cedar",
+        "glen",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_eagle_vista",
+      "path": "projects/project_eagle_vista.md",
+      "title": "Project: Eagle Vista",
+      "chunk_type": "project",
+      "project": "Eagle Vista",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "eagle",
+        "project",
+        "vista"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_eastbridge",
+      "path": "projects/project_eastbridge.md",
+      "title": "Project: Eastbridge",
+      "chunk_type": "project",
+      "project": "Eastbridge",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "eastbridge",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_erda",
+      "path": "projects/project_erda.md",
+      "title": "Project: Erda",
+      "chunk_type": "project",
+      "project": "Erda",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "erda",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_harmony",
+      "path": "projects/project_harmony.md",
+      "title": "Project: Harmony",
+      "chunk_type": "project",
+      "project": "Harmony",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "data/staged/vf_lot_code_decoder_v1.csv",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "harmony",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Per-lot cost is `inferred` (decoder-derived; not source-owner-validated).",
+        "Range / shell rows for this project, if any, are kept at project+phase grain via `vf_unattributed_shell_dollars` \u2014 not allocated to specific lots.",
+        "Harmony joins MUST use the 3-tuple (project, phase, lot). Flat (project, lot) doublecounts $6.75M (MF1 lot 101 \u2260 B1 lot 101).",
+        "HarmCo X-X commercial parcels are NOT residential lots; tracked under `commercial_parcels_non_lot`."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Citing per-project cost with explicit `inferred` confidence label"
+      ]
+    },
+    {
+      "chunk_id": "project_ironton",
+      "path": "projects/project_ironton.md",
+      "title": "Project: Ironton",
+      "chunk_type": "project",
+      "project": "Ironton",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "ironton",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_lewis_estates",
+      "path": "projects/project_lewis_estates.md",
+      "title": "Project: Lewis Estates",
+      "chunk_type": "project",
+      "project": "Lewis Estates",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "estates",
+        "lewis",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_lomond_heights",
+      "path": "projects/project_lomond_heights.md",
+      "title": "Project: Lomond Heights",
+      "chunk_type": "project",
+      "project": "Lomond Heights",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "data/staged/vf_lot_code_decoder_v1.csv",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "heights",
+        "lomond",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Per-lot cost is `inferred` (decoder-derived; not source-owner-validated).",
+        "Range / shell rows for this project, if any, are kept at project+phase grain via `vf_unattributed_shell_dollars` \u2014 not allocated to specific lots."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Citing per-project cost with explicit `inferred` confidence label"
+      ]
+    },
+    {
+      "chunk_id": "project_meadow_creek",
+      "path": "projects/project_meadow_creek.md",
+      "title": "Project: Meadow Creek",
+      "chunk_type": "project",
+      "project": "Meadow Creek",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "medium",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "creek",
+        "meadow",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "guardrail_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for project-specific quality notes."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions"
+      ]
+    },
+    {
+      "chunk_id": "project_parkway_fields",
+      "path": "projects/project_parkway_fields.md",
+      "title": "Project: Parkway Fields",
+      "chunk_type": "project",
+      "project": "Parkway Fields",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "data/staged/vf_lot_code_decoder_v1.csv",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "fields",
+        "parkway",
+        "project"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Per-lot cost is `inferred` (decoder-derived; not source-owner-validated).",
+        "Range / shell rows for this project, if any, are kept at project+phase grain via `vf_unattributed_shell_dollars` \u2014 not allocated to specific lots.",
+        "AultF SR-suffix (0139SR / 0140SR; 401 rows) is inferred-unknown.",
+        "AultF B-suffix routes to B1 (corrected in v2.1; was B2 in v2.0)."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Citing per-project cost with explicit `inferred` confidence label"
+      ]
+    },
+    {
+      "chunk_id": "project_salem_fields",
+      "path": "projects/project_salem_fields.md",
+      "title": "Project: Salem Fields",
+      "chunk_type": "project",
+      "project": "Salem Fields",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "fields",
+        "project",
+        "salem"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "guardrail_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for project-specific quality notes."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions"
+      ]
+    },
+    {
+      "chunk_id": "project_santaquin_estates",
+      "path": "projects/project_santaquin_estates.md",
+      "title": "Project: Santaquin Estates",
+      "chunk_type": "project",
+      "project": "Santaquin Estates",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "estates",
+        "project",
+        "santaquin"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_scarlet_ridge",
+      "path": "projects/project_scarlet_ridge.md",
+      "title": "Project: Scarlet Ridge",
+      "chunk_type": "project",
+      "project": "Scarlet Ridge",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "data/staged/vf_lot_code_decoder_v1.csv",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "project",
+        "ridge",
+        "scarlet"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Per-lot cost is `inferred` (decoder-derived; not source-owner-validated).",
+        "Range / shell rows for this project, if any, are kept at project+phase grain via `vf_unattributed_shell_dollars` \u2014 not allocated to specific lots.",
+        "Do NOT report SctLot rows under Scarlet Ridge \u2014 they live under 'Scattered Lots' in v2.1."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Citing per-project cost with explicit `inferred` confidence label"
+      ]
+    },
+    {
+      "chunk_id": "project_scattered_lots",
+      "path": "projects/project_scattered_lots.md",
+      "title": "Project: Scattered Lots",
+      "chunk_type": "project",
+      "project": "Scattered Lots",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "scratch/vf_decoder_gl_finance_review.md",
+        "data/reports/v2_0_to_v2_1_change_log.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "inferred",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "lots",
+        "project",
+        "scattered"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Project-grain only; no lot-level inventory feed exists.",
+        "Canonical name not source-owner-validated."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Citing per-project cost with explicit `inferred` confidence label"
+      ]
+    },
+    {
+      "chunk_id": "project_westbridge",
+      "path": "projects/project_westbridge.md",
+      "title": "Project: Westbridge",
+      "chunk_type": "project",
+      "project": "Westbridge",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "low",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "project",
+        "westbridge"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "decoder_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Cost is unknown for this project; do not infer from sibling projects."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions",
+        "Refusing cost-estimation queries on this project"
+      ]
+    },
+    {
+      "chunk_id": "project_willowcreek",
+      "path": "projects/project_willowcreek.md",
+      "title": "Project: Willowcreek",
+      "chunk_type": "project",
+      "project": "Willowcreek",
+      "source_files": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "project",
+        "willowcreek"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "decoder_questions",
+        "guardrail_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for project-specific quality notes."
+      ],
+      "allowed_uses": [
+        "RAG retrieval for project-specific Q&A about BCPD scope",
+        "Grounding facts for an LLM agent answering business questions"
+      ]
+    },
+    {
+      "chunk_id": "source_allocation_workbooks",
+      "path": "sources/source_allocation_workbooks.md",
+      "title": "Source family: Allocation workbooks",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "scratch/ops_inventory_collateral_allocation_findings.md",
+        "data/staged/ops_inventory_collateral_validation_report.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "medium",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "allocation",
+        "family",
+        "source",
+        "source_family",
+        "workbooks"
+      ],
+      "safe_question_types": [
+        "phase_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "Allocation expansion is gated on populating Flagship workbook or wiring OfferMaster fallback."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    },
+    {
+      "chunk_id": "source_clickup_tasks",
+      "path": "sources/source_clickup_tasks.md",
+      "title": "Source family: ClickUp Tasks",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "data/reports/staged_clickup_validation_report.md",
+        "scratch/ops_inventory_collateral_allocation_findings.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "clickup",
+        "family",
+        "source",
+        "source_family",
+        "tasks"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "scope_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for per-field detail."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    },
+    {
+      "chunk_id": "source_collateral_reports",
+      "path": "sources/source_collateral_reports.md",
+      "title": "Source family: Collateral Reports",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "scratch/ops_inventory_collateral_allocation_findings.md",
+        "data/staged/ops_inventory_collateral_validation_report.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "collateral",
+        "family",
+        "reports",
+        "source",
+        "source_family"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for per-field detail."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    },
+    {
+      "chunk_id": "source_gl_datarails_38col",
+      "path": "sources/source_gl_datarails_38col.md",
+      "title": "Source family: DataRails 38-col (GL DR 38-col)",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "scratch/gl_financials_findings.md",
+        "data/staged/staged_gl_transactions_v2_validation_report.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "col",
+        "datarails",
+        "family",
+        "source",
+        "source_family"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "coverage_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for per-field detail."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    },
+    {
+      "chunk_id": "source_gl_qb_register",
+      "path": "sources/source_gl_qb_register.md",
+      "title": "Source family: QuickBooks Register (GL QB 12-col)",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "scratch/gl_financials_findings.md",
+        "data/staged/staged_gl_transactions_v2_validation_report.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "col",
+        "family",
+        "quickbooks",
+        "register",
+        "source",
+        "source_family"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for per-field detail."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    },
+    {
+      "chunk_id": "source_gl_vertical_financials",
+      "path": "sources/source_gl_vertical_financials.md",
+      "title": "Source family: Vertical Financials (GL VF 46-col)",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "scratch/gl_financials_findings.md",
+        "data/reports/staged_gl_validation_report.md",
+        "data/staged/staged_gl_transactions_v2_validation_report.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "col",
+        "family",
+        "financials",
+        "source",
+        "source_family",
+        "vertical"
+      ],
+      "safe_question_types": [
+        "cost_questions",
+        "lot_grain_questions",
+        "phase_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for per-field detail."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    },
+    {
+      "chunk_id": "source_inventory_closing_report",
+      "path": "sources/source_inventory_closing_report.md",
+      "title": "Source family: Inventory Closing Report",
+      "chunk_type": "source_family",
+      "project": null,
+      "source_files": [
+        "data/staged/staged_inventory_lots.parquet",
+        "data/reports/staged_inventory_lots_validation_report.md",
+        "scratch/ops_inventory_collateral_allocation_findings.md"
+      ],
+      "state_version": "v2.1",
+      "confidence": "high",
+      "last_generated": "2026-05-04",
+      "keywords": [
+        "closing",
+        "family",
+        "inventory",
+        "report",
+        "source",
+        "source_family"
+      ],
+      "safe_question_types": [
+        "lot_grain_questions",
+        "source_provenance_questions"
+      ],
+      "caveat_tags": [
+        "See state_quality_report_v2_1_bcpd.md for per-field detail."
+      ],
+      "allowed_uses": [
+        "RAG grounding for source-system questions",
+        "Anchor for any answer that cites this source family"
+      ]
+    }
+  ]
+}

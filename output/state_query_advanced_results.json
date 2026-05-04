@@ -1,0 +1,710 @@
+{
+  "generated_at": "2026-04-30T00:45:30.834489+00:00",
+  "harness": "state_query_harness_advanced.py",
+  "deterministic": true,
+  "uses_llm": false,
+  "results": [
+    {
+      "id": "Q1",
+      "question": "Which operating claim would be most risky to present as fact right now?",
+      "answer": "Three claims must be presented carefully or not at all: (1) LE has $0 cost \u2014 this is missing data, not zero spend; (2) named phases \u2014 they are heuristic estimates, not plat phases; (3) per-lot cost \u2014 never computed and would be invented if shown.",
+      "evidence": [
+        {
+          "claim": "\"LE has $0 in costs\"",
+          "reality": "Cost is unknown, not zero. The GL sample contains only Beginning Balance rows for Anderson Geneva LLC; no Activity rows.",
+          "would_validate": "Re-export GL with Anderson Geneva LLC Activity rows included.",
+          "risk_level": "HIGH \u2014 actively misleading if shown as 'cost data'."
+        },
+        {
+          "claim": "\"There are 4 phases\"",
+          "reality": "These are heuristic clusters of lot_number, not real plat phases. The JSON labels each one phase_confidence='estimated'; consumers might miss the label.",
+          "would_validate": "Plat \u2192 phase \u2192 lot reference table from land/development.",
+          "risk_level": "MEDIUM \u2014 accurate as 'estimated'; risky if presented unlabeled."
+        },
+        {
+          "claim": "\"The cost per lot is $X\"",
+          "reality": "Per-lot cost is NOT computed and NOT in operating_state_v1.json. If a consumer divides total_cost / lots_total, that is an arithmetic estimate, not a measurement; the GL has zero lot-level signal.",
+          "would_validate": "GL re-export with Class / Customer:Job populated.",
+          "risk_level": "HIGH \u2014 invented number; do not display anywhere."
+        }
+      ],
+      "why_not_obvious": "Each claim looks defensible from a single source: the GL really does show $0 for Anderson Geneva; the JSON really does have phase_id values; you can divide cost by lots in your head. The risk only surfaces when you cross-check against confidence labels and source-file scope.",
+      "confidence": "high",
+      "missing": "Re-export of GL with full Anderson Geneva activity; plat reference table.",
+      "sources": [
+        "operating_state_v1.json",
+        "state_quality_report_v1.md"
+      ],
+      "recommended_next_action": "Treat the three claims above as 'do not present without label'. Always pair LE cost figures with the phrase 'unknown, not zero'."
+    },
+    {
+      "id": "Q2",
+      "question": "Which project/lot cluster should leadership investigate first, and why?",
+      "answer": "Investigate **LE LE P1** first. 18 lots share the same stage (Backfill) at 44.4% avg completion \u2014 a coordinated stall, not 18 independent ones. We cannot measure how long this has been the case because ClickUp lacks per-task start/done dates, which is itself an investigation finding. Full ranked list below.",
+      "evidence": [
+        {
+          "project": "LE",
+          "phase_id_estimated": "LE P1",
+          "lots_in_phase": 18,
+          "dominant_stage": "Backfill",
+          "avg_completion_pct": 0.4444,
+          "cohort_alignment": 1.0,
+          "duration_data_available": false,
+          "cost_data_available": false,
+          "priority_score": 0.8889
+        },
+        {
+          "project": "H MF",
+          "phase_id_estimated": "H MF P2",
+          "lots_in_phase": 2,
+          "dominant_stage": "Backfill",
+          "avg_completion_pct": 0.2222,
+          "cohort_alignment": 0.5,
+          "duration_data_available": false,
+          "cost_data_available": true,
+          "priority_score": 0.4333
+        },
+        {
+          "project": "H A14",
+          "phase_id_estimated": "H A14 P1",
+          "lots_in_phase": 1,
+          "dominant_stage": "Spec",
+          "avg_completion_pct": 0.5556,
+          "cohort_alignment": 1.0,
+          "duration_data_available": false,
+          "cost_data_available": true,
+          "priority_score": 0.4305
+        },
+        {
+          "project": "H MF",
+          "phase_id_estimated": "H MF P1",
+          "lots_in_phase": 1,
+          "dominant_stage": "Spec",
+          "avg_completion_pct": 0.5556,
+          "cohort_alignment": 1.0,
+          "duration_data_available": false,
+          "cost_data_available": true,
+          "priority_score": 0.4305
+        }
+      ],
+      "why_not_obvious": "ClickUp alone shows 18 separate Backfill tasks \u2014 looks like routine in-progress work. The 'stuck cohort' signal only appears when you aggregate stage completion across all lots in a project AND notice the uniformity. ClickUp's UI doesn't surface this; spreadsheets rarely do.",
+      "confidence": "high (ranking is deterministic); estimated (phase_id used as the cluster key)",
+      "missing": "ClickUp start_date / date_done per task \u2014 would distinguish a 1-week pause from a 3-month stall.",
+      "sources": [
+        "operating_state_v1.json",
+        "phase_state_real.csv"
+      ],
+      "recommended_next_action": "Walk the LE P1 cohort with the project manager. Backfill\u2192Spec is one handoff; identify whether the blocker is materials, subcontractor scheduling, inspection, or weather."
+    },
+    {
+      "id": "Q3",
+      "question": "What is the strongest evidence that the current systems are not yet unified?",
+      "answer": "Five concrete gaps. Each system has a piece of the truth and silently lacks the field that would let you join it: ClickUp lacks money, GL lacks lots/phases, the LE entity is in the GL chart but not in the GL activity, stage names disagree between exports, and the GL vendor field is placeholder text.",
+      "evidence": [
+        {
+          "gap": "ClickUp has lot/stage state but no financial attribution",
+          "evidence": "22 lots in operating_state_v1.json carry stage + completion + status, but zero of them carry a cost field. ClickUp has no GL hook.",
+          "source_files": "lot_state_real.csv, operating_state_v1.json"
+        },
+        {
+          "gap": "GL has dollars but no lot/phase fields",
+          "evidence": "DataRails GL export columns Project, ProjectID, ProjectCode, Phase, Lot are 100% null. Only Entity is populated. Verified in financials_normalized.csv.",
+          "source_files": "financials_normalized.csv, FInancials_Sample_Struct.xlsx"
+        },
+        {
+          "gap": "LE has operating state but no financial Activity rows",
+          "evidence": "Anderson Geneva LLC (the GL entity for LE) appears 24\u00d7 in the GL sample \u2014 all 24 are Beginning Balance rows. Zero Activity rows. LE shows project_total_cost=0 in the JSON.",
+          "source_files": "operating_state_v1.json, financials_normalized.csv"
+        },
+        {
+          "gap": "Stage vocabulary inconsistent across exports",
+          "evidence": "stage_summary.md flags 'Dig' (18\u00d7) and 'Dug' (7\u00d7) as the same canonical stage. Without a canonical alias map, any cross-export join silently drops 'Dig' rows.",
+          "source_files": "stage_summary.md, stage_dictionary.csv"
+        },
+        {
+          "gap": "Vendor field is placeholder text in the GL",
+          "evidence": "97 of 100 GL rows have Vendor='Vendor or Supplier name' (literal placeholder). Vendor-level cost analysis is currently impossible from this export.",
+          "source_files": "FInancials_Sample_Struct.xlsx (raw)"
+        }
+      ],
+      "why_not_obvious": "Each gap is invisible inside its own system. ClickUp looks complete to ops; the GL looks complete to finance. The unification problem only appears when you sit between them and try to answer 'how much did we spend on lot 31?' \u2014 which requires both, and currently can't be answered.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "operating_state_v1.json",
+        "financials_normalized.csv",
+        "stage_summary.md",
+        "FInancials_Sample_Struct.xlsx"
+      ],
+      "recommended_next_action": "Use this evidence list as the rationale for the data asks in Q12. These gaps are not opinion; they are direct file observations."
+    },
+    {
+      "id": "Q4",
+      "question": "What can we automate today versus what still requires source-owner input?",
+      "answer": "Five capabilities are automated today (lot parsing, phase estimation, GL classification, agent-ready state, deterministic Q&A). One unlocks at full scale (lot inventory). Five are blocked behind specific source-owner asks (durations, real phases, lot-level cost, vendor breakdown, LE financials). The blocked items are not engineering work \u2014 they are data-availability work.",
+      "evidence": [
+        {
+          "capability": "Parse ClickUp tasks \u2192 LotState + ProjectState",
+          "status": "AUTOMATED TODAY",
+          "evidence": "clickup_real.py runs in seconds; 100% project_code parse rate.",
+          "blocker": "\u2014"
+        },
+        {
+          "capability": "Estimate phase grouping from lot_number",
+          "status": "AUTOMATED TODAY (heuristic)",
+          "evidence": "phase_state.py / assign_phases() \u2014 gap-based clustering.",
+          "blocker": "\u2014"
+        },
+        {
+          "capability": "GL \u2192 cost_bucket + entity classification + project totals",
+          "status": "AUTOMATED TODAY",
+          "evidence": "build_financials.py groups GL rows by entity_role and account prefix.",
+          "blocker": "\u2014"
+        },
+        {
+          "capability": "Generate agent-ready operating_state_v1.json",
+          "status": "AUTOMATED TODAY",
+          "evidence": "package_operating_state.py runs in seconds.",
+          "blocker": "\u2014"
+        },
+        {
+          "capability": "Deterministic Q&A over the state",
+          "status": "AUTOMATED TODAY",
+          "evidence": "state_query_harness.py + state_query_harness_advanced.py.",
+          "blocker": "\u2014"
+        },
+        {
+          "capability": "Project-level lot inventory at full scale",
+          "status": "AUTOMATABLE AFTER FULL EXPORT",
+          "evidence": "Same parser, larger CSV. No code change.",
+          "blocker": "Full ClickUp export from ops owner."
+        },
+        {
+          "capability": "Stage duration / cycle-time analytics",
+          "status": "BLOCKED",
+          "evidence": "ClickUp start_date + date_done populated 0\u20131% in current sample.",
+          "blocker": "Operations team must populate per-task start/done dates."
+        },
+        {
+          "capability": "Real (not estimated) phase identifiers",
+          "status": "BLOCKED",
+          "evidence": "No plat reference table currently in the data corpus.",
+          "blocker": "Land/development team must provide a plat \u2192 phase \u2192 lot reference table."
+        },
+        {
+          "capability": "Phase- or lot-level cost",
+          "status": "BLOCKED",
+          "evidence": "GL Class / Customer:Job / Phase / Lot fields are 100% null in the export.",
+          "blocker": "Finance/DataRails owner must re-export with these QuickBooks fields restored."
+        },
+        {
+          "capability": "Vendor-level cost breakdown",
+          "status": "BLOCKED",
+          "evidence": "97% of GL Vendor field is the placeholder string 'Vendor or Supplier name'.",
+          "blocker": "Finance/DataRails owner must include real vendor name in export."
+        },
+        {
+          "capability": "LE financial visibility",
+          "status": "BLOCKED",
+          "evidence": "Anderson Geneva LLC has only Beginning Balance rows in the GL sample.",
+          "blocker": "Finance/DataRails owner must include Anderson Geneva Activity rows."
+        }
+      ],
+      "why_not_obvious": "From inside any one team this looks like 'we need more analysis'. Cross-system, the bottleneck is consistently 'one missing field in a source export'.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "clickup_real.py",
+        "phase_state.py",
+        "build_financials.py",
+        "package_operating_state.py",
+        "state_query_harness*.py"
+      ],
+      "recommended_next_action": "Send Q12 (asks-by-owner) to the four owners listed there. Each ask is one source-system change, not a new project."
+    },
+    {
+      "id": "Q5",
+      "question": "If we were rebuilding the collateral report, which fields are available now and which are missing?",
+      "answer": "Of the standard collateral-report fields: 5 available, 1 estimated, 1 partial, 4 missing. We can produce a credible operating snapshot today; we cannot produce a banking-grade collateral report without the missing four (remaining cost, stage start/done dates, advance rate / borrowing base).",
+      "evidence": [
+        {
+          "field": "project / community",
+          "status": "AVAILABLE",
+          "source": "operating_state_v1.json \u2192 project_code",
+          "confidence": "high",
+          "note": "Parsed from ClickUp task names."
+        },
+        {
+          "field": "phase",
+          "status": "ESTIMATED",
+          "source": "operating_state_v1.json \u2192 phase_id_estimated",
+          "confidence": "estimated",
+          "note": "Heuristic clustering, not real plat phases."
+        },
+        {
+          "field": "lot number",
+          "status": "AVAILABLE",
+          "source": "operating_state_v1.json \u2192 lots[].lot_number",
+          "confidence": "high",
+          "note": "Parsed from ClickUp."
+        },
+        {
+          "field": "lot count",
+          "status": "AVAILABLE",
+          "source": "project_state_real.csv \u2192 total_lots",
+          "confidence": "high",
+          "note": "Aggregate of lot_state."
+        },
+        {
+          "field": "lot status / stage",
+          "status": "AVAILABLE",
+          "source": "lot_state_real.csv \u2192 current_stage, status",
+          "confidence": "high",
+          "note": "Stage canonicalized via STAGE_ALIASES."
+        },
+        {
+          "field": "cost (spent)",
+          "status": "PARTIAL",
+          "source": "operating_state_v1.json \u2192 financials.project_total_cost",
+          "confidence": "partial",
+          "note": "Project-level only. LE shows $0 (missing Activity rows, not zero spend)."
+        },
+        {
+          "field": "remaining cost",
+          "status": "MISSING",
+          "source": "\u2014",
+          "confidence": "unavailable",
+          "note": "Requires expected-cost source (allocation sheet, budget, or Yardi). Not in current pipeline."
+        },
+        {
+          "field": "start date",
+          "status": "MISSING",
+          "source": "ClickUp.start_date (0/100 populated)",
+          "confidence": "unavailable",
+          "note": "ClickUp start_date is the column; populated rate is effectively zero."
+        },
+        {
+          "field": "done date",
+          "status": "MISSING",
+          "source": "ClickUp.date_done (1/100 populated)",
+          "confidence": "unavailable",
+          "note": "Same \u2014 column exists, almost never filled."
+        },
+        {
+          "field": "as-of date",
+          "status": "AVAILABLE",
+          "source": "operating_state_v1.json \u2192 generated_at",
+          "confidence": "high",
+          "note": "Snapshot timestamp."
+        },
+        {
+          "field": "advance rate / borrowing base",
+          "status": "MISSING",
+          "source": "\u2014",
+          "confidence": "unavailable",
+          "note": "Lender-specific. The original ontology pipeline has these fields per phase; this pipeline does not."
+        }
+      ],
+      "why_not_obvious": "Most fields exist somewhere in the company; the issue is that no single system holds all of them in the same row. A manual collateral rebuild stitches them together every quarter \u2014 that is exactly the work this pipeline is meant to remove.",
+      "confidence": "high",
+      "missing": "Expected-cost source (budget/allocation), stage timestamps, advance-rate schedule.",
+      "sources": [
+        "operating_state_v1.json",
+        "lot_state_real.csv",
+        "project_state_real.csv"
+      ],
+      "recommended_next_action": "Decide whether this pipeline should be extended to subsume collateral reporting, or whether collateral stays in the existing ontology pipeline (pipelines/build_phase_state.py) and operating_state_v1 stays focused on operations."
+    },
+    {
+      "id": "Q6",
+      "question": "What is the minimum data ask that would create the biggest jump in system capability?",
+      "answer": "**GL re-export with Class / Customer:Job / Transaction ID / Vendor / Memo** is the highest-leverage single change \u2014 one source-owner action unlocks four downstream capabilities (phase cost, lot cost, JE pairing, vendor analysis). The plat reference table is a close second, removes the 'estimated' label, and is half a day of engineering.",
+      "evidence": [
+        {
+          "rank": 1,
+          "ask": "GL re-export with Class / Customer:Job / Transaction ID / Vendor / Memo",
+          "owner": "Finance / DataRails",
+          "unlocks_count": 4,
+          "unlocks": [
+            "phase-level cost",
+            "lot-level cost (if Customer:Job goes that deep)",
+            "real journal-entry pairing (DR/CR via Transaction ID)",
+            "vendor + memo cost explanation"
+          ],
+          "engineering_work": "Extend account_mapping; add Customer:Job parser. ~1 day.",
+          "why_top": "One source-owner action unlocks the most downstream capabilities."
+        },
+        {
+          "rank": 2,
+          "ask": "Plat \u2192 phase \u2192 lot reference table",
+          "owner": "Land / Development",
+          "unlocks_count": 2,
+          "unlocks": [
+            "replace heuristic phase clustering with real phase IDs",
+            "true phase rollups (lots per real plat phase)"
+          ],
+          "engineering_work": "Replace assign_phases() with a left-join. ~30 minutes.",
+          "why_top": "Removes the only 'estimated' label currently on the operating state."
+        },
+        {
+          "rank": 3,
+          "ask": "Anderson Geneva LLC Activity rows in GL",
+          "owner": "Finance / DataRails",
+          "unlocks_count": 1,
+          "unlocks": [
+            "LE financial coverage (currently $0 placeholder)"
+          ],
+          "engineering_work": "None \u2014 automatic on next pipeline run.",
+          "why_top": "Single biggest visibility gap in the snapshot."
+        },
+        {
+          "rank": 4,
+          "ask": "Full ClickUp export (vs 100-row preview)",
+          "owner": "Operations",
+          "unlocks_count": 1,
+          "unlocks": [
+            "complete lot inventory at scale"
+          ],
+          "engineering_work": "None \u2014 same parser.",
+          "why_top": "Volume only; no new capability. Important but not a force-multiplier."
+        },
+        {
+          "rank": 5,
+          "ask": "ClickUp start_date / date_done populated per task",
+          "owner": "Operations",
+          "unlocks_count": 1,
+          "unlocks": [
+            "stage-duration analytics; quantified bottleneck duration"
+          ],
+          "engineering_work": "None \u2014 fields already in the loader; populated values just light up.",
+          "why_top": "Quantifies the bottleneck signal we can already detect."
+        }
+      ],
+      "why_not_obvious": "Looking at the list of asks in isolation, full ClickUp export sounds biggest because it's the largest file. But measured by 'capabilities unlocked per ask', restoring two QuickBooks fields outranks the volume play.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "agent_context_v1.md",
+        "state_quality_report_v1.md"
+      ],
+      "recommended_next_action": "Lead with the GL re-export ask in the next finance conversation. Frame as 'two QuickBooks fields, four downstream capabilities'."
+    },
+    {
+      "id": "Q7",
+      "question": "What would change if we received the full ClickUp export?",
+      "answer": "Volume increases; capabilities do not. Lot count grows from 22 to the full active inventory; bottleneck and confidence signals become statistically stronger. Same parser, same architecture, same outputs. No code change.",
+      "evidence": [
+        {
+          "area": "Lot count",
+          "before": "22 lots (sample)",
+          "after": "Full active inventory (likely 100s)"
+        },
+        {
+          "area": "Confidence distribution",
+          "before": "20 high / 0 medium / 2 low",
+          "after": "Higher absolute count of high-confidence; FALLBACK_ keys disappear when child tasks exist"
+        },
+        {
+          "area": "Stage distribution",
+          "before": "Backfill-heavy (because LE dominates)",
+          "after": "Full multi-project mix; bottleneck signals can be compared across projects"
+        },
+        {
+          "area": "Project count",
+          "before": "3 (LE, H MF, H A14)",
+          "after": "All active project_codes the company uses"
+        },
+        {
+          "area": "Parser",
+          "before": "100% parse rate on sample",
+          "after": "Same parser, no change"
+        },
+        {
+          "area": "Pipeline architecture",
+          "before": "5 scripts",
+          "after": "Same 5 scripts"
+        },
+        {
+          "area": "Code change required",
+          "before": "\u2014",
+          "after": "None \u2014 input file path swap only"
+        }
+      ],
+      "why_not_obvious": "It's tempting to think 'more data = more capability'. In this case the parser is already general; what changes is signal strength, not what the system can answer.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "clickup_real.py"
+      ],
+      "recommended_next_action": "Request as a one-time export with no schema change. Pipeline verifies on first run."
+    },
+    {
+      "id": "Q8",
+      "question": "What would change if we received the plat\u2192phase\u2192lot reference table?",
+      "answer": "Phase identity becomes ground truth. assign_phases() becomes a join; phase_id_estimated \u2192 phase_id; phase_confidence \u2192 'high' across the board. Every downstream artifact regenerates with real phase IDs. No schema change, no architecture change. The 'estimated' label currently on the operating state disappears.",
+      "evidence": [
+        {
+          "field/output": "phase_id_estimated",
+          "before": "Heuristic (gap-based clustering)",
+          "after": "Real phase_id sourced from authoritative table"
+        },
+        {
+          "field/output": "phase_confidence",
+          "before": "'estimated' on every phase",
+          "after": "'high' on every phase"
+        },
+        {
+          "field/output": "lot \u2192 phase membership",
+          "before": "Approximate",
+          "after": "Exact lookup"
+        },
+        {
+          "field/output": "phase rollups (lot counts, stage distribution)",
+          "before": "Useful but labeled estimated",
+          "after": "Trustworthy as plat-level reporting"
+        },
+        {
+          "field/output": "operating_view_v1.csv, lot_state_real.csv, operating_state_v1.json",
+          "before": "Carry phase_id_estimated",
+          "after": "Regenerate with real phase_id; same shape"
+        },
+        {
+          "field/output": "Code change required",
+          "before": "\u2014",
+          "after": "Replace assign_phases() with a left-join (~30 minutes)"
+        },
+        {
+          "field/output": "Architecture change",
+          "before": "\u2014",
+          "after": "None"
+        }
+      ],
+      "why_not_obvious": "From outside the codebase, replacing a heuristic with a join sounds like a redesign. It is one function in one file (~30 lines); the shape of the rest of the pipeline is unchanged because phase identity is the only thing that depends on it.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "phase_state.py",
+        "operating_state_v1.json"
+      ],
+      "recommended_next_action": "Define table schema with land/development: minimum columns = [project_code, phase_id, lot_number]. Anything richer is additive."
+    },
+    {
+      "id": "Q9",
+      "question": "What would change if we received GL Class / Customer:Job / Transaction ID?",
+      "answer": "Financial attribution moves from entity/project-level toward phase- or lot-level. Journal entries become reconstructable. Vendor and memo context turns on. Lot-level cost MAY become possible \u2014 depends on how deep Customer:Job goes in QuickBooks. This is the single highest-leverage data ask in the entire system.",
+      "evidence": [
+        {
+          "capability": "Financial attribution granularity",
+          "before": "Project / entity level only",
+          "after": "Phase or lot level, depending on Customer:Job depth"
+        },
+        {
+          "capability": "Journal entry reconstruction",
+          "before": "Impossible \u2014 no JE/Transaction ID column; only 28% of (entity, date) groups balance",
+          "after": "Possible \u2014 pair DR/CR by Transaction ID"
+        },
+        {
+          "capability": "Vendor-level cost analysis",
+          "before": "Blocked \u2014 97% of Vendor field is placeholder text",
+          "after": "Vendor breakdown of project/phase/lot cost"
+        },
+        {
+          "capability": "Cost explanation (memo)",
+          "before": "Blocked \u2014 Memo populated on 2% of rows",
+          "after": "Per-cost narrative when populated"
+        },
+        {
+          "capability": "Lot-level cost",
+          "before": "Not computed; would be invented if attempted",
+          "after": "Possible IF Customer:Job hierarchy goes lot-deep (depends on QB setup)"
+        },
+        {
+          "capability": "Cross-system reconciliation (ClickUp lot \u2194 GL cost)",
+          "before": "Manual, requires intuition",
+          "after": "Joinable on (project_code, phase_id, lot_number)"
+        }
+      ],
+      "why_not_obvious": "These five fields look like minor metadata in QuickBooks. They are the entire bridge between finance and operations. With them, ClickUp lot 31 can be joined to its actual spend; without them, the systems remain parallel universes.",
+      "confidence": "high (for the first four); partial (for lot-level cost \u2014 depends on QuickBooks Customer:Job structure)",
+      "missing": "Confirmation that QuickBooks Customer:Job actually carries lot information in the Flagship setup.",
+      "sources": [
+        "financials_normalized.csv",
+        "FInancials_Sample_Struct.xlsx (raw)"
+      ],
+      "recommended_next_action": "Ask the finance/DataRails owner to confirm two things: (a) Class is set per project, (b) Customer:Job hierarchy contains lot-level entries. If yes, request re-export with both visible."
+    },
+    {
+      "id": "Q10",
+      "question": "What is the best 'before vs after' story from the current work?",
+      "answer": "Before: every quarter, truth was rebuilt by hand from ClickUp + GL + collateral files + spreadsheets. After: a deterministic 5-script pipeline produces a labeled, agent-ready state file in seconds, with explicit confidence on every claim and explicit asks for the missing inputs. The work eliminates the manual rebuild loop without overclaiming completeness.",
+      "evidence": [
+        {
+          "capability": "Source of truth for active lots",
+          "before": "Manual spreadsheet rebuild",
+          "after": "lot_state_real.csv \u2014 22 lots, 20 high-confidence, deterministic"
+        },
+        {
+          "capability": "Project rollup",
+          "before": "Manual aggregation across systems",
+          "after": "project_state_real.csv \u2014 generated in seconds"
+        },
+        {
+          "capability": "Phase visibility",
+          "before": "PDF / plat lookup or guess",
+          "after": "phase_state_real.csv \u2014 labeled estimated, ready to swap when plat table arrives"
+        },
+        {
+          "capability": "Financial attribution",
+          "before": "Manual pivot on entity",
+          "after": "financials_normalized.csv \u2014 bucket + entity classified, 100% cost-bucket coverage"
+        },
+        {
+          "capability": "Cross-system gap visibility",
+          "before": "Discovered by accident, lost between meetings",
+          "after": "state_query_advanced_examples.md \u2014 Q3 lists every gap with source files"
+        },
+        {
+          "capability": "Agent-readiness",
+          "before": "Not possible \u2014 no structured state",
+          "after": "operating_state_v1.json + harness \u2014 nested project\u2192phase\u2192lot with confidence labels"
+        },
+        {
+          "capability": "Reproducibility",
+          "before": "Each rebuild is a custom job",
+          "after": "Five scripts, deterministic, runs in seconds"
+        }
+      ],
+      "why_not_obvious": "The 'after' state still has gaps (phase IDs estimated, LE financials missing). What changed is not that we have all the data \u2014 it's that we no longer rebuild what we have, and we know exactly what's missing.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "all 5 pipeline scripts; all output/ files"
+      ],
+      "recommended_next_action": "Use this as the framing slide for any leadership conversation."
+    },
+    {
+      "id": "Q11",
+      "question": "What should we show in a meeting that proves progress without overclaiming?",
+      "answer": "Show three things in this order: (1) operating_state_v1.json \u2014 the deliverable; (2) state_query_advanced_examples.md \u2014 proof it answers hard questions with provenance; (3) the asks-by-owner list (Q12) \u2014 proof we know what's next. Do not lead with the HTML dashboard; it is the weakest framing because it looks like ordinary BI.",
+      "evidence": [
+        {
+          "section": "show",
+          "items": [
+            {
+              "rank": 1,
+              "artifact": "operating_state_v1.json",
+              "why": "Proves the deliverable shape: structured, nested, labeled state ready for any agent.",
+              "show_as": "Open the file in a JSON viewer; point at financial_notes for LE and phase_confidence='estimated'."
+            },
+            {
+              "rank": 2,
+              "artifact": "state_query_advanced_examples.md (this file)",
+              "why": "Proves the state is queryable for hard questions, not just lookups. Each answer carries provenance.",
+              "show_as": "Walk through Q1 (riskiest claim), Q3 (systems not unified), and Q6 (leverage ranking)."
+            },
+            {
+              "rank": 3,
+              "artifact": "Asks-by-owner list (Q12 below)",
+              "why": "Proves we know exactly what we don't know and who owns each gap.",
+              "show_as": "Send before the meeting; reference during. Frame as concrete next actions, not wish list."
+            }
+          ]
+        },
+        {
+          "section": "do_not_show_as_main",
+          "items": [
+            {
+              "artifact": "operating_dashboard_v1.html",
+              "reason": "Looks like a generic SaaS dashboard. Undersells the structural work and invites comparison to BI tools we are not trying to be."
+            },
+            {
+              "artifact": "Raw CSVs (operating_view_v1.csv, lot_state_real.csv)",
+              "reason": "Tabular data without confidence/provenance encourages the wrong questions."
+            },
+            {
+              "artifact": "operating_state_console_v1.html",
+              "reason": "Better than the dashboard, but it's a presentation layer. The substance is the JSON + harness; show those first, the console is a 'see, you can also render it' moment."
+            }
+          ]
+        }
+      ],
+      "why_not_obvious": "The most polished artifact (the dashboard) is the most misleading framing. The least polished (a JSON file) carries the actual proof.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "all output/ artifacts"
+      ],
+      "recommended_next_action": "Build the meeting flow around the JSON + harness. Use the console / dashboard only if asked 'can you visualize this?'"
+    },
+    {
+      "id": "Q12",
+      "question": "What is the clearest 'ask by owner' list?",
+      "answer": "Four owners, six asks. Operations owns ClickUp completeness and timestamps. Finance owns GL re-export and the LE Activity gap. Land/development owns the plat reference table. Accounting/Yardi owns the question of whether lot-level cost lives in QB or Yardi. Each ask names exact fields, the reason it matters, and the capability it unlocks.",
+      "evidence": [
+        {
+          "owner": "Operations / ClickUp owner",
+          "asks": [
+            {
+              "need": "Full ClickUp task export (current is 100-row preview)",
+              "why": "Pipeline currently sees 22 lots; full export likely shows the entire active inventory.",
+              "unlocks": "Complete lot inventory at scale; statistically stronger bottleneck signals."
+            },
+            {
+              "need": "Populate start_date and date_done per construction task",
+              "why": "Currently 0\u20131 of 100 rows have these. We can see what stage a lot is at; we cannot see how long it has been there.",
+              "unlocks": "Stage-duration analytics; quantified bottleneck duration; cycle-time reporting."
+            }
+          ]
+        },
+        {
+          "owner": "Finance / DataRails owner",
+          "asks": [
+            {
+              "need": "Re-export GL with Class, Customer:Job, Transaction ID / JE ID, Vendor, Memo populated",
+              "why": "Current export has Project, Phase, Lot columns 100% null and Vendor 97% placeholder. The bridge between cost and operations is missing.",
+              "unlocks": "Phase-level cost (immediate); lot-level cost (depends on QB setup); journal-entry reconstruction; vendor + memo analysis."
+            },
+            {
+              "need": "Anderson Geneva LLC Activity rows",
+              "why": "Anderson Geneva is the GL entity for project LE. Current export has only Beginning Balance rows for this entity. LE shows $0 cost \u2014 which is missing data, not zero spend.",
+              "unlocks": "LE financial coverage."
+            }
+          ]
+        },
+        {
+          "owner": "Land / Development owner",
+          "asks": [
+            {
+              "need": "Plat \u2192 phase \u2192 lot reference table (minimum columns: project_code, phase_id, lot_number)",
+              "why": "Phase identifiers in this pipeline are heuristic (gap-based clustering). They are clearly labeled 'estimated' but cannot be presented as plat phases.",
+              "unlocks": "Real phase IDs replace heuristic IDs; 30-minute code change; every downstream artifact regenerates with phase_confidence='high'."
+            }
+          ]
+        },
+        {
+          "owner": "Accounting / Yardi owner (if Yardi holds construction cost detail)",
+          "asks": [
+            {
+              "need": "Confirm whether QuickBooks Customer:Job carries lot-level entries, or whether lot detail lives in Yardi",
+              "why": "If lot detail is in Yardi rather than QB, we should pull from Yardi instead of waiting for a QB re-export.",
+              "unlocks": "Routes the lot-cost ask to the system that actually has the data."
+            },
+            {
+              "need": "If Yardi: provide Yardi extract with project / phase / lot / cost columns",
+              "why": "Same outcome as the QB re-export, sourced from the system of record.",
+              "unlocks": "Lot-level cost without waiting for QB schema changes."
+            }
+          ]
+        }
+      ],
+      "why_not_obvious": "Each owner sees their own system as 'fine'. The asks only make sense when you sit between systems and try to answer a cross-system question. Sending one combined list \u2014 rather than four separate conversations \u2014 is itself a contribution.",
+      "confidence": "high",
+      "missing": "\u2014",
+      "sources": [
+        "state_query_advanced_examples.md (this file)",
+        "operating_state_v1_validation_memo.md"
+      ],
+      "recommended_next_action": "Send this list to the four owners with a 1-line preface: 'one source-system change each, no engineering required from your side.'"
+    }
+  ]
+}

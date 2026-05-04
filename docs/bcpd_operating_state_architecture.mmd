@@ -1,0 +1,138 @@
+%% BCPD Operating State v2.1 — System Architecture
+%% Source files → Staging → Crosswalks → Canonical entities → Operating State → Agent layer
+%% Generated: 2026-05-01
+
+flowchart TD
+    classDef source fill:#fff7e0,stroke:#a07a00,color:#000
+    classDef stage fill:#e0f0ff,stroke:#0066aa,color:#000
+    classDef logic fill:#dde8ff,stroke:#0066aa,color:#000,stroke-dasharray:3 3
+    classDef xwalk fill:#fff0f5,stroke:#a04060,color:#000
+    classDef canon fill:#e8f5e8,stroke:#2a7a2a,color:#000
+    classDef state fill:#f0e8ff,stroke:#603090,color:#000
+    classDef agent fill:#ffe8e0,stroke:#a04020,color:#000
+    classDef guard fill:#ffffff,stroke:#a00000,stroke-width:2px,color:#a00000
+
+    subgraph S1 [1. Source files and systems]
+        direction LR
+        SRC_DR[DataRails GL<br/>monthly extracts 2016-2025]:::source
+        SRC_VF[Vertical Financials<br/>BCPD lot-level cost basis<br/>2018-2025]:::source
+        SRC_QB[QuickBooks Register<br/>2025 vendor and cash]:::source
+        SRC_INV[Inventory Closing Report<br/>active + closed lot xlsx]:::source
+        SRC_COL[Collateral Reports<br/>Dec 2025 plus prior period]:::source
+        SRC_ALL[Allocation Workbooks<br/>LH, Parkway, Flagship v3]:::source
+        SRC_CK[ClickUp Tasks<br/>5,509 total; 1,177 lot-tagged]:::source
+    end
+
+    subgraph S2 [2. Staging and normalization]
+        direction LR
+        STG_GL[staged_gl_transactions_v2<br/>210,440 rows, 3 schemas normalized]:::stage
+        STG_DEDUP[/DataRails dedup<br/>2.16x row-multiplication artifact removed/]:::logic
+        STG_DEC[/VF lot-code decoder v1<br/>infers phase plus lot from VF lot string/]:::logic
+        STG_INV[staged_inventory_lots<br/>3,872 rows; ACTIVE / CLOSED / ACTIVE_PROJECTED]:::stage
+        STG_CK[staged_clickup_tasks<br/>lot-tagged subset filter]:::stage
+        STG_COLA[collateral and allocation profiles<br/>read-as-is]:::stage
+    end
+
+    subgraph S3 [3. Crosswalks - translation between source vocabularies]
+        direction LR
+        XW_E[entity crosswalk<br/>13 mappings]:::xwalk
+        XW_P[project crosswalk<br/>142 mappings<br/>VF and DR codes plus subdivisions]:::xwalk
+        XW_PH[phase crosswalk<br/>385 mappings<br/>whitespace and alias normalize]:::xwalk
+        XW_L[lot crosswalk<br/>14,537 rows]:::xwalk
+        XW_EX[Examples:<br/>PWFS2 to Parkway Fields B2<br/>SctLot to Scattered Lots NOT Scarlet Ridge<br/>HarmCo A01 to B10 to MF2 residential<br/>range rows to project plus phase grain]:::xwalk
+    end
+
+    subgraph S4 [4. Canonical business entities]
+        direction LR
+        CAN_LE[LegalEntity<br/>BCPD, BCPBL, ASD, BCPI]:::canon
+        CAN_PR[Project / Community]:::canon
+        CAN_PH[Phase / Plat]:::canon
+        CAN_LOT[Lot]:::canon
+        CAN_FT[FinancialTransaction]:::canon
+        CAN_AC[Account and CostCategory]:::canon
+        CAN_INV[InventorySnapshot]:::canon
+        CAN_COL[CollateralSnapshot]:::canon
+        CAN_TS[TaskState]:::canon
+        CAN_AL[Allocation / Budget]:::canon
+    end
+
+    subgraph S5 [5. Operating State v2.1]
+        direction LR
+        ST_JSON[operating_state_v2_1_bcpd.json<br/>26 projects, 5,366 lots in body]:::state
+        ST_QR[state_quality_report_v2_1_bcpd.md<br/>per-field fill rate plus confidence]:::state
+        ST_QE[state_query_examples_v2_1_bcpd.md]:::state
+        ST_CL[v2_0_to_v2_1_change_log.md]:::state
+        ST_CONF[Every value carries:<br/>source_confidence, caveats, source_files]:::state
+    end
+
+    subgraph S6 [6. Agent / read-only Q&A layer]
+        direction LR
+        AG_CTX[agent_context_v2_1_bcpd.md<br/>5 enforced rules]:::agent
+        AG_QA[bcpd_state_qa harness<br/>15 fixed questions, deterministic]:::agent
+        AG_OUT[Every answer:<br/>direct_answer + evidence + confidence + caveats + source_files + cannot_conclude]:::agent
+    end
+
+    subgraph S7 [Cross-cutting guardrails]
+        direction LR
+        G1[BCPD-only,<br/>not org-wide]:::guard
+        G2[Missing cost is missing,<br/>not zero]:::guard
+        G3[Org-wide v2 is blocked]:::guard
+        G4[Range / shell rows are NOT<br/>lot-level cost]:::guard
+        G5[Harmony joins require<br/>project + phase + lot]:::guard
+        G6[Decoder rules are inferred,<br/>not source-owner-validated]:::guard
+        G7[DataRails raw sums are<br/>unsafe without dedup]:::guard
+        G8[QB Register is tie-out only]:::guard
+    end
+
+    SRC_DR --> STG_GL
+    SRC_VF --> STG_GL
+    SRC_QB --> STG_GL
+    STG_GL --> STG_DEDUP
+    STG_GL --> STG_DEC
+    SRC_INV --> STG_INV
+    SRC_CK --> STG_CK
+    SRC_COL --> STG_COLA
+    SRC_ALL --> STG_COLA
+
+    STG_GL --> XW_E
+    STG_GL --> XW_P
+    STG_DEC --> XW_P
+    STG_INV --> XW_P
+    STG_INV --> XW_PH
+    STG_INV --> XW_L
+    STG_CK --> XW_P
+    STG_COLA --> XW_P
+
+    XW_E --> CAN_LE
+    XW_P --> CAN_PR
+    XW_PH --> CAN_PH
+    XW_L --> CAN_LOT
+    STG_GL --> CAN_FT
+    STG_DEDUP --> CAN_FT
+    STG_GL --> CAN_AC
+    STG_INV --> CAN_INV
+    STG_COLA --> CAN_COL
+    STG_CK --> CAN_TS
+    STG_COLA --> CAN_AL
+
+    CAN_LE --> ST_JSON
+    CAN_PR --> ST_JSON
+    CAN_PH --> ST_JSON
+    CAN_LOT --> ST_JSON
+    CAN_FT --> ST_JSON
+    CAN_INV --> ST_JSON
+    CAN_COL --> ST_JSON
+    CAN_TS --> ST_JSON
+    CAN_AL --> ST_JSON
+    CAN_AC --> ST_JSON
+
+    ST_JSON --> AG_CTX
+    ST_JSON --> AG_QA
+    ST_QR --> AG_CTX
+    ST_QE --> AG_QA
+    AG_CTX --> AG_OUT
+    AG_QA --> AG_OUT
+
+    S7 -.governs.- S2
+    S7 -.governs.- S5
+    S7 -.governs.- S6

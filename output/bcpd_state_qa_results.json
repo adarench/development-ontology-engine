@@ -1,0 +1,527 @@
+{
+  "mode": "deterministic",
+  "schema_version": "operating_state_v2_1_bcpd",
+  "harness_version": "0.1.0",
+  "answers": [
+    {
+      "qid": 1,
+      "question": "What is the current BCPD operating state scope?",
+      "category": "metadata",
+      "expected_kind": "descriptive",
+      "direct_answer": "BCPD v2.1 covers BCPD, BCPBL, ASD, BCPI. Inventory as-of 2026-04-29; Collateral as-of 2025-12-31 (prior 2025-06-30); GL maximum posting date 2025-12-31. GL filter: GL: entity_name='Building Construction Partners, LLC'; Lot Data/2025Status: HorzCustomer='BCP'. Decoder: vf_lot_code_decoder_v1 (inferred; not source-owner-validated). Join key policy: 3-tuple (canonical_project, canonical_phase, canonical_lot_number) for VF in decoder scope; 2-tuple for DR (no DR phase signal); never flat 2-tuple for Harmony cost rollups (would double-count $6.75M)..",
+      "evidence": [
+        {
+          "field": "metadata.entities_in_scope",
+          "value": [
+            "BCPD",
+            "BCPBL",
+            "ASD",
+            "BCPI"
+          ]
+        },
+        {
+          "field": "metadata.entity_filter_applied",
+          "value": "GL: entity_name='Building Construction Partners, LLC'; Lot Data/2025Status: HorzCustomer='BCP'"
+        },
+        {
+          "field": "metadata.join_key_policy",
+          "value": "3-tuple (canonical_project, canonical_phase, canonical_lot_number) for VF in decoder scope; 2-tuple for DR (no DR phase signal); never flat 2-tuple for Harmony cost rollups (would double-count $6.75M)."
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "BCPD-only; org-wide blocked; see caveat list in state JSON."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/agent_context_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 2,
+      "question": "Which projects have strong GL coverage?",
+      "category": "coverage",
+      "expected_kind": "analytical",
+      "direct_answer": "Projects with strong GL coverage in v2.1 (VF cost present, decoder-derived where applicable; all confidence='inferred'):\n  - Parkway Fields: $145,385,255 across 43,041 VF rows\n  - Harmony: $53,599,350 across 11,910 VF rows\n  - Meadow Creek: $50,330,176 across 7,418 VF rows\n  - Salem Fields: $45,472,837 across 9,793 VF rows\n  - Arrowhead Springs: $24,211,128 across 5,153 VF rows\n  - Scarlet Ridge: $14,121,562 across 3,916 VF rows\n  - Scattered Lots: $6,553,893 across 1,130 VF rows\n  - Willowcreek: $2,598,359 across 264 VF rows\nPer the baseline join coverage report, Salem Fields and Willowcreek hit 100% lot-level GL coverage; Scarlet Ridge 90.9%; Parkway Fields 78.0% in v2.1 (was 61.5% in v0; AultF B\u2192B1 correction added 11 lots); Harmony 53.7%; Lomond Heights 43.9%; Arrowhead Springs 65.0%.",
+      "evidence": [
+        {
+          "field": "actuals.vf_2018_2025_sum_usd",
+          "top": [
+            [
+              "Parkway Fields",
+              145385254.62,
+              43041
+            ],
+            [
+              "Harmony",
+              53599350.4,
+              11910
+            ],
+            [
+              "Meadow Creek",
+              50330176.249999985,
+              7418
+            ],
+            [
+              "Salem Fields",
+              45472837.24999999,
+              9793
+            ],
+            [
+              "Arrowhead Springs",
+              24211127.55,
+              5153
+            ],
+            [
+              "Scarlet Ridge",
+              14121562.21,
+              3916
+            ],
+            [
+              "Scattered Lots",
+              6553892.7900000075,
+              1130
+            ],
+            [
+              "Willowcreek",
+              2598359.21,
+              264
+            ]
+          ]
+        }
+      ],
+      "confidence": "inferred",
+      "caveats": [
+        "Per-lot VF cost is decoder-derived (v1 decoder, inferred).",
+        "Salem and Willowcreek had clean lot codes in v0 (no decoder needed); their coverage is corroborated.",
+        "Harmony and Parkway use the v1 decoder \u2014 confidence is inferred until source-owner validation."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/agent_context_v2_1_bcpd.md",
+        "data/reports/join_coverage_v0.md",
+        "data/reports/join_coverage_simulation_v1.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 3,
+      "question": "Which projects have inventory but no GL coverage?",
+      "category": "coverage",
+      "expected_kind": "analytical",
+      "direct_answer": "Projects with inventory rows but zero GL coverage (structural gaps; cost is unknown, not zero):\n  - Lewis Estates: 34 active 2025Status lots, no VF or DR rows\n  - Ammon: 16 active 2025Status lots, no VF or DR rows\n  - Erda: 14 active 2025Status lots, no VF or DR rows\n  - Cedar Glen: 10 active 2025Status lots, no VF or DR rows\n  - Eastbridge: 6 active 2025Status lots, no VF or DR rows\n  - Westbridge: 6 active 2025Status lots, no VF or DR rows\n  - Eagle Vista: 5 active 2025Status lots, no VF or DR rows",
+      "evidence": [
+        {
+          "field": "no_gl_projects",
+          "value": [
+            [
+              "Lewis Estates",
+              34
+            ],
+            [
+              "Ammon",
+              16
+            ],
+            [
+              "Erda",
+              14
+            ],
+            [
+              "Cedar Glen",
+              10
+            ],
+            [
+              "Eastbridge",
+              6
+            ],
+            [
+              "Westbridge",
+              6
+            ],
+            [
+              "Eagle Vista",
+              5
+            ]
+          ]
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "Cost is unknown for these projects, not zero \u2014 missing GL is a structural gap.",
+        "Lewis Estates also has no Collateral Report row and no allocation workbook.",
+        "These are not v2.1 defects \u2014 they require fresh GL data, which is out of scope."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/join_coverage_v0.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 4,
+      "question": "What changed from v2.0 to v2.1?",
+      "category": "change-log",
+      "expected_kind": "descriptive",
+      "direct_answer": "v2.0 \u2192 v2.1 changes:\n  - aultf_b_to_b1_correction: AultF B-suffix lots (0127B-0211B) now route to B1 (was B2 in v0). Empirically AultF and PWFS2 B-suffix lot ranges are disjoint. (1,499 rows; $4,006,662) [evidence: scratch/vf_decoder_gl_finance_review.md Q2] \u2014 confidence: inferred (high-evidence)\n  - harmony_3tuple_join_required: Harmony joins use (project, phase, lot) 3-tuple. Flat (project, lot) would collapse MF1 lot 101 and B1 lot 101 onto the same inventory row. [evidence: scratch/vf_decoder_gl_finance_review.md Q1+Q3] \u2014 confidence: inferred (high-evidence)\n  - harmco_split: HarmCo split: residential A01-B10 \u2192 MF2; X-X commercial parcels (A-A through K-K) \u2192 non-lot inventory exception. Commercial pads NOT modeled as residential LotState in v2.1. [evidence: scratch/vf_decoder_ops_allocation_review.md Q2] \u2014 confidence: inferred (high-evidence on residential; ontology pending for commercial)\n  - sctlot_to_scattered_lots: SctLot is now a separate canonical project 'Scattered Lots'. v0 silently inflated Scarlet Ridge's project-grain cost by ~46%. [evidence: scratch/vf_decoder_gl_finance_review.md Q4] \u2014 confidence: inferred-unknown (canonical name not source-owner-validated)\n  - range_rows_at_project_phase_grain: Range-form lots ('3001-06', '0009-12', etc.) kept at project+phase grain. Surfaced as `vf_unattributed_shell_dollars` per phase. NOT expanded to per-lot synthetic rows in v2.1. (4,020 rows; $45,752,047) [evidence: scratch/vf_decoder_gl_finance_review.md Q5] \u2014 confidence: inferred (high-evidence on interpretation; allocation method pending)\n  - aultf_sr_isolated: AultF SR-suffix lots (0139SR, 0140SR) isolated as inferred-unknown; not attached to lot-level cost in v2.1. (401 rows; $1,183,859) [evidence: scratch/vf_decoder_ops_allocation_review.md Q1] \u2014 confidence: inferred-unknown",
+      "evidence": [
+        {
+          "field": "v2_1_changes_summary",
+          "value": [
+            "aultf_b_to_b1_correction",
+            "harmony_3tuple_join_required",
+            "harmco_split",
+            "sctlot_to_scattered_lots",
+            "range_rows_at_project_phase_grain",
+            "aultf_sr_isolated"
+          ]
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "All changes ship `confidence='inferred'` until source-owner validation."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/v2_0_to_v2_1_change_log.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 5,
+      "question": "Why should v2.1 replace v2.0?",
+      "category": "recommendation",
+      "expected_kind": "descriptive",
+      "direct_answer": "v2.1 should replace v2.0 as the default BCPD state because v2.1 is strictly more accurate (every change either fixes a known correctness defect or makes a silent error visible) and the schema is a strict superset (additive \u2014 v2.0 fields all preserved). The four silent defects in v2.0 are: (a) AultF B-suffix misroute ($4.0M), (b) Harmony double-count risk on flat 2-tuple joins ($6.75M), (c) Scarlet Ridge silent inflation by SctLot ($6.55M), (d) range-row pollution of lot-level rollups ($45.75M). v2.1 fixes all four. Confidence labels remain `inferred` so consumers know the rules are not source-owner-validated; that is a label change, not a quality regression.",
+      "evidence": [
+        {
+          "field": "v2_1_changes_summary",
+          "value": [
+            "aultf_b_to_b1_correction",
+            "harmony_3tuple_join_required",
+            "harmco_split",
+            "sctlot_to_scattered_lots",
+            "range_rows_at_project_phase_grain",
+            "aultf_sr_isolated"
+          ]
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "Binary coverage delta is modest (+4.2pp GL); the wins are correctness, not coverage.",
+        "Confidence stays `inferred` for decoder-derived rules until a source owner signs off."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/v2_0_to_v2_1_change_log.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 6,
+      "question": "What does missing cost mean?",
+      "category": "semantics",
+      "expected_kind": "self-aware",
+      "direct_answer": "Missing cost means missing, not zero. A project or lot with no GL row has `cost = unknown`, and the v2.1 state reports it as null/absent \u2014 not as $0. Reporting $0 would falsely imply the project incurred no cost, when in reality the cost is simply not in the available source. For BCPD specifically: 7 active projects (Ammon, Cedar Glen, Eagle Vista, Eastbridge, Erda, Ironton, Santaquin Estates, Westbridge) plus Lewis Estates have inventory but no GL \u2014 their cost is unknown. DR 38-col covers BCPD 2016-02 \u2192 2017-02 but only after dedup; the 2017-03 \u2192 2018-06 gap (~15 months) has zero GL rows for any entity and cannot be filled.",
+      "evidence": [
+        {
+          "field": "caveats[2]_2017_gap",
+          "value": "GL gap 2017-03 \u2192 2018-06 (~15 months, zero rows for any entity). Pre-2018 BCPD cost = DR-dedup 2016-02 \u2192 2017-02 only."
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "Agents must never substitute $0 for missing cost in v2.1 answers."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/agent_context_v2_1_bcpd.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 7,
+      "question": "Can we answer org-wide actuals?",
+      "category": "refusal",
+      "expected_kind": "refusal",
+      "direct_answer": "Org-wide actuals cannot be answered from v2.1. Org-wide is blocked: Hillcrest Road at Saratoga, LLC and Flagship Belmont Phase two LLC have GL rows only through 2017-02; publishing an org-wide rollup today would mix 2024-2025 BCPD activity against 2017-frozen non-BCPD entities, which is misleading regardless of how it is labeled. v2.1 is BCPD-only by design. The unblocking artifact is a fresh GL pull for Hillcrest and Flagship Belmont covering 2017-03 onward.",
+      "evidence": [
+        {
+          "field": "caveats[0]_orgwide_blocked",
+          "value": "Org-wide v2 is blocked: Hillcrest, Flagship Belmont have GL only through 2017-02. v2.1 remains BCPD-only."
+        }
+      ],
+      "confidence": "refused",
+      "caveats": [
+        "Refusal: org-wide v2 is explicitly blocked. Do not attempt rollups across non-BCPD entities."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/agent_context_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": true,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 8,
+      "question": "Which costs are safe at lot grain?",
+      "category": "trust",
+      "expected_kind": "analytical",
+      "direct_answer": "Costs safe at lot grain in v2.1:\n  - VF per-lot cost via the v1 decoder, joined on the (canonical_project, canonical_phase, canonical_lot_number) 3-tuple. Confidence: inferred (decoder-derived; not source-owner-validated).\n  - Salem Fields and Willowcreek per-lot VF cost (already 100% in v0; decoder unchanged for these).\n  - Scarlet Ridge per-lot VF cost (90.9% in v0; decoder unchanged).\n  - Parkway Fields per-lot VF cost via PWFS2 4-digit, PWFT1 4-digit (single-lot subset), AultF A-suffix, and AultF B-suffix \u2192 B1 (corrected in v2.1).\n  - Harmony per-lot VF cost via Harm3 lot-range routing \u2014 REQUIRES the 3-tuple key (flat 2-tuple double-counts $6.75M).\n  - Lomond Heights per-lot VF cost (Phase 2A SFR/TH split).\n  - Arrowhead Springs per-lot VF cost via 123/456 routing.\nCosts NOT safe at lot grain (must stay at project/phase or project grain): see q9.",
+      "evidence": [
+        {
+          "field": "vf_actual_cost_join_key",
+          "value": "(canonical_project, canonical_phase, canonical_lot_number)"
+        }
+      ],
+      "confidence": "inferred",
+      "caveats": [
+        "All decoder-derived per-lot costs are `inferred` until source-owner validation.",
+        "DR 38-col is project-grain only (no phase signal in source).",
+        "QB register is tie-out only and excluded from primary rollups.",
+        "Harmony specifically requires the 3-tuple join key."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 9,
+      "question": "Which costs are only safe at project/phase grain?",
+      "category": "trust",
+      "expected_kind": "analytical",
+      "direct_answer": "Costs only safe at project or project+phase grain in v2.1:\n  - Range-form GL rows (4,020 rows / $45.75M across 8 VF codes: HarmTo, LomHT1, PWFT1, ArroT1, MCreek, SaleTT, SaleTR, WilCrk). Surfaced per-phase as `vf_unattributed_shell_dollars`. Not allocated to specific lots in v2.1.\n  - HarmCo X-X commercial parcels (205 rows / ~$2.6M). Tracked under `commercial_parcels_non_lot` per project. NOT residential lots; do not roll into LotState.\n  - SctLot rows now under canonical_project='Scattered Lots' (1,130 rows / $6.55M). Project-grain only \u2014 no lot-level inventory feed exists for these scattered/custom lots.\n  - DR 38-col (2016-02 \u2192 2017-02 BCPD): project-grain only because phase column is 0% filled in source.\n  - AultF SR-suffix lots (0139SR, 0140SR; 401 rows / ~$1.2M). Excluded from lot-level cost; meaning unknown.\n  - Salem/Willowcreek/Meadow Creek pre-existing v0 passthrough rows (already at project grain in v0; preserved).",
+      "evidence": [
+        {
+          "field": "v2_1_changes.range_rows_at_project_phase_grain",
+          "value": {
+            "rows": 4020,
+            "dollars": 45752046.62999996,
+            "description": "Range-form lots ('3001-06', '0009-12', etc.) kept at project+phase grain. Surfaced as `vf_unattributed_shell_dollars` per phase. NOT expanded to per-lot synthetic rows in v2.1.",
+            "evidence": "scratch/vf_decoder_gl_finance_review.md Q5",
+            "confidence": "inferred (high-evidence on interpretation; allocation method pending)"
+          }
+        }
+      ],
+      "confidence": "inferred",
+      "caveats": [
+        "$45.75M of shell allocations should always be reported separately, never folded into lot-level totals.",
+        "Range-row per-lot expansion is a v2.2 candidate; needs allocation-method sign-off (equal split / sales-weighted / unit-fixed)."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "output/agent_context_v2_1_bcpd.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 10,
+      "question": "What are the open source-owner validation questions?",
+      "category": "self-aware",
+      "expected_kind": "descriptive",
+      "direct_answer": "There are 8 source-owner questions still open in v2.1. Each gates promotion of a corresponding rule from `inferred` to source-owner-validated.\n  1. Harm3 lot-range routing \u2014 confirm phase is recoverable only via lot range, no source-system attribute we missed.\n  2. AultF SR-suffix meaning ('0139SR', '0140SR'; 401 rows / 2 lots).\n  3. AultF B-suffix overlap 201-211 \u2014 confirm B1 max lot.\n  4. MF1 vs B1 overlap 101-116 \u2014 sample 5-10 Harm3 rows in this range to confirm they are SFR/B1, not MF1 leakage.\n  5. SctLot canonical name and program identity (currently 'Scattered Lots').\n  6. Range-entry allocation method (equal split vs sales-weighted vs unit-fixed) before per-lot expansion.\n  7. HarmCo X-X commercial parcels \u2014 which allocation source covers Harmony commercial? (Currently outside Flagship Allocation Workbook.)\n  8. DR 38-col phase recovery \u2014 is there a source-system attribute we missed for pre-2018 lots?",
+      "evidence": [
+        {
+          "field": "source_owner_questions_open",
+          "value": [
+            "Harm3 lot-range routing \u2014 confirm phase is recoverable only via lot range, no source-system attribute we missed.",
+            "AultF SR-suffix meaning ('0139SR', '0140SR'; 401 rows / 2 lots).",
+            "AultF B-suffix overlap 201-211 \u2014 confirm B1 max lot.",
+            "MF1 vs B1 overlap 101-116 \u2014 sample 5-10 Harm3 rows in this range to confirm they are SFR/B1, not MF1 leakage.",
+            "SctLot canonical name and program identity (currently 'Scattered Lots').",
+            "Range-entry allocation method (equal split vs sales-weighted vs unit-fixed) before per-lot expansion.",
+            "HarmCo X-X commercial parcels \u2014 which allocation source covers Harmony commercial? (Currently outside Flagship Allocation Workbook.)",
+            "DR 38-col phase recovery \u2014 is there a source-system attribute we missed for pre-2018 lots?"
+          ]
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "Until each question is resolved, the matching rule stays `inferred`."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "output/agent_context_v2_1_bcpd.md",
+        "scratch/vf_decoder_gl_finance_review.md",
+        "scratch/vf_decoder_ops_allocation_review.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 11,
+      "question": "What is the safest interpretation of SctLot?",
+      "category": "semantics",
+      "expected_kind": "self-aware",
+      "direct_answer": "In v2.1, SctLot is interpreted as a separate canonical project named 'Scattered Lots', NOT Scarlet Ridge. Evidence: zero lot-number overlap with ScaRdg's lots (101-152); 'SctLot' appears as an internal accounting bucket in invoice IDs (e.g. `Inv.:SctLot-000032-01:Turner Excavating`); vendor mix is custom-build / scattered-construction (Bob Craghead Plumbing, Five Star Building, etc.); multi-year history 2018-2025; outlier lot `0639` is consistent with a high-numbered scattered-acquisition ID. Confidence: inferred-unknown \u2014 the canonical name 'Scattered Lots' is a working name pending source-owner confirmation. Total: 1,130 rows / $6,553,893. v2.0 silently attributed these rows to Scarlet Ridge, inflating its project-grain cost by ~46%.",
+      "evidence": [
+        {
+          "field": "Scattered Lots actuals",
+          "rows": 1130,
+          "dollars": 6553892.7900000075
+        }
+      ],
+      "confidence": "inferred",
+      "caveats": [
+        "SctLot is project-grain only \u2014 no lot-level inventory feed exists.",
+        "Canonical name not source-owner-validated; 'Scattered Lots' is the v2.1 working name.",
+        "Do not report these dollars under Scarlet Ridge in v2.1 answers."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "scratch/vf_decoder_gl_finance_review.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 12,
+      "question": "What is the issue with Harmony MF1 vs B1?",
+      "category": "semantics",
+      "expected_kind": "analytical",
+      "direct_answer": "Harmony MF1 and B1 are two different physical phases that share lot numbers 101-116. Inventory has two distinct rows for every lot in that range \u2014 one MF1 (townhome / multi-family) and one B1 (single-family). Per Terminal B's review, VF Harm3 carries 1,733 rows / $5.35M for MF1 lots 101-116 (mapped to B1 by lot range), AND VF HarmTo carries 53 rows / $1.40M for the same lot strings (correctly mapped to MF1). If a downstream rollup uses a flat (canonical_project, lot) join, those two streams collapse onto the same inventory row and produce a $6.75M attribution error. v2.1 fixes this by enforcing the 3-tuple (canonical_project, canonical_phase, canonical_lot_number) as the join key for VF cost. Every per-lot `vf_actual_cost_3tuple_usd` field in the v2.1 JSON is computed using the 3-tuple. Agents querying Harmony cost MUST use the 3-tuple \u2014 never project + lot alone.",
+      "evidence": [
+        {
+          "field": "v2_1_changes.harmony_3tuple_join_required",
+          "value": {
+            "double_count_prevented": 6750000.0,
+            "description": "Harmony joins use (project, phase, lot) 3-tuple. Flat (project, lot) would collapse MF1 lot 101 and B1 lot 101 onto the same inventory row.",
+            "evidence": "scratch/vf_decoder_gl_finance_review.md Q1+Q3",
+            "confidence": "inferred (high-evidence)"
+          }
+        }
+      ],
+      "confidence": "inferred",
+      "caveats": [
+        "The 3-tuple discipline applies project-wide, not just to Harmony \u2014 but MF1/B1 is the concrete case where flat 2-tuple breaks.",
+        "Harm3 lot-range routing is itself `inferred` (Terminal B Q1 still open)."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "scratch/vf_decoder_gl_finance_review.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 13,
+      "question": "What does the range-row treatment mean?",
+      "category": "semantics",
+      "expected_kind": "analytical",
+      "direct_answer": "Range-form GL rows (e.g. `'3001-06'`, `'0009-12'`, `'0172-175'`) are summary postings that span multiple lots \u2014 typically shared-shell or shared-infrastructure costs that genuinely cannot be attributed to one physical lot. Memo evidence (`'shell allocation'`), per-row dollar magnitude (~$3-14K), and design / engineering vendor mix all confirm this interpretation. v2.1 keeps these rows at the project+phase grain via `vf_unattributed_shell_dollars` per phase, totaling 4,020 rows / $45,752,047 across 8 VF codes (HarmTo, LomHT1, PWFT1, ArroT1, MCreek, SaleTT, SaleTR, WilCrk). They are NOT allocated to specific lots in v2.1. Per-lot expansion is a v2.2 candidate that needs source-owner sign-off on the allocation method (equal split vs sales-price-weighted vs unit-fixed). When a query asks 'what is the total cost for lot X?', the v2.1 answer is the lot's `vf_actual_cost_3tuple_usd` plus an explicit reference to the phase-level `vf_unattributed_shell_dollars` ('plus a share of $X phase shell costs that haven't been allocated to specific lots yet').",
+      "evidence": [
+        {
+          "field": "v2_1_changes.range_rows_at_project_phase_grain",
+          "value": {
+            "rows": 4020,
+            "dollars": 45752046.62999996,
+            "description": "Range-form lots ('3001-06', '0009-12', etc.) kept at project+phase grain. Surfaced as `vf_unattributed_shell_dollars` per phase. NOT expanded to per-lot synthetic rows in v2.1.",
+            "evidence": "scratch/vf_decoder_gl_finance_review.md Q5",
+            "confidence": "inferred (high-evidence on interpretation; allocation method pending)"
+          }
+        }
+      ],
+      "confidence": "inferred",
+      "caveats": [
+        "$45.75M is ~13% of total VF cost basis \u2014 large enough to matter; small enough that lot-level rollups should always disclose it.",
+        "Equal-split expansion is one option but not the obvious right one; needs source-owner sign-off."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/vf_lot_code_decoder_v1_report.md",
+        "scratch/vf_decoder_gl_finance_review.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 14,
+      "question": "What can we say about ClickUp coverage?",
+      "category": "coverage",
+      "expected_kind": "analytical",
+      "direct_answer": "ClickUp coverage in v2.1 is unchanged from v2.0: 1,177 lot-tagged tasks (filtered from 5,509 total) covering 1,091 distinct (canonical_project, lot) pairs across 9 BCPD communities. Of the 1,285 high-confidence inventory base lots, 811 (63.1%) have \u22651 lot-tagged task. Within the lot-tagged subset, phase fill is 92.86% and date fields are 3-5x denser than in the full 5,509-row file (actual_c_of_o 22.77% vs 4.88% global). Subdivision typo crosswalk is applied (Aarowhead \u2192 Arrowhead Springs, Scarlett Ridge \u2192 Scarlet Ridge, Park Way \u2192 Parkway Fields, etc.). The Arrowhead-173 outlier (75 tasks on one lot) is flagged but not removed. ClickUp is used as a per-lot signal where present and falls back to inventory + GL when absent.",
+      "evidence": [
+        {
+          "field": "data_quality.join_coverage_with_clickup",
+          "value": 811
+        },
+        {
+          "field": "data_quality.join_coverage_pct_clickup",
+          "value": 63.1
+        }
+      ],
+      "confidence": "high",
+      "caveats": [
+        "Lot-tagging discipline is the upstream gate: only 21% of ClickUp tasks have both subdivision and lot_num.",
+        "ClickUp does not change between v2.0 and v2.1."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/join_coverage_v0.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    },
+    {
+      "qid": 15,
+      "question": "What data would most improve the next version?",
+      "category": "roadmap",
+      "expected_kind": "self-aware",
+      "direct_answer": "Highest-leverage data improvements for the next BCPD state version (rough order of value-per-effort):\n  1. Fresh GL pull for Hillcrest + Flagship Belmont covering 2017-03 onward \u2014 unblocks org-wide v2.\n  2. Fresh GL pull covering the dump-wide 2017-03 \u2192 2018-06 gap (~15 months, zero rows) \u2014 closes the single largest temporal gap.\n  3. Populated Flagship Allocation Workbook v3 (or equivalent) for Arrowhead Springs, Ben Lomond, Harmony, Lewis Estates, Salem Fields, Scarlet Ridge, Willowcreek \u2014 unblocks budget-vs-actual for ~70% of active phases. Currently the workbook framework exists but cells are mostly empty.\n  4. Cost source for the 7 active no-GL projects (Ammon, Cedar Glen, Eagle Vista, Eastbridge, Erda, Ironton, Santaquin Estates, Westbridge) + Lewis Estates. Either project-tagged GL extract or allocation/underwriting workbook.\n  5. Source-owner attestation of the v1 decoder's lot-range routing for Harmony / Parkway / Arrowhead / Lomond Heights so confidence can promote from `inferred` to `validated`.\n  6. Allocation-method decision for range-row per-lot expansion ($45.75M).\n  7. Chart-of-accounts crosswalk between QB register (`132-XXX`, `510-XXX`) and the legacy chart used by VF/DR \u2014 required for QB \u2194 VF tie-out at category level.\n  8. Improved ClickUp lot-tagging discipline (21% \u2192 higher) \u2014 operational, not technical.\nItems 1-4 require new data; items 5-7 are clarifications on existing data; item 8 is process change.",
+      "evidence": [
+        {
+          "field": "open_questions",
+          "value": [
+            "Harm3 lot-range routing \u2014 confirm phase is recoverable only via lot range, no source-system attribute we missed.",
+            "AultF SR-suffix meaning ('0139SR', '0140SR'; 401 rows / 2 lots).",
+            "AultF B-suffix overlap 201-211 \u2014 confirm B1 max lot."
+          ]
+        }
+      ],
+      "confidence": "medium",
+      "caveats": [
+        "Items 1-4 are gated on data acquisition \u2014 Terminal A cannot resolve them.",
+        "Item 5 is the lowest-cost / highest-confidence-lift improvement we can pursue today."
+      ],
+      "source_files_used": [
+        "output/operating_state_v2_1_bcpd.json",
+        "data/reports/coverage_improvement_opportunities.md",
+        "output/state_quality_report_v2_1_bcpd.md",
+        "output/bcpd_operating_state_v2_review_memo.md"
+      ],
+      "cannot_conclude": false,
+      "guardrails_triggered": [],
+      "mode": "deterministic"
+    }
+  ]
+}
