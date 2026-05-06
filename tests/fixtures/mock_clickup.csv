@@ -1,0 +1,18 @@
+name,top_level_parent_id,status,date_created,date_updated,date_done,due_date,start_date,projected_close_date,sold_date,sold,subdivision,lot_num
+H 1 Dug,pid_h_001,in progress,2024-01-01,2024-02-01,,,,,,,H,1
+H 1 Footings,pid_h_001,in progress,2024-01-01,2024-03-01,,,,,,,H,1
+H 1 Walls,pid_h_001,complete,2024-01-01,2024-04-15,2024-04-15,,,,,,H,1
+H 2 Dug,pid_h_002,complete,2024-01-15,2024-02-15,2024-02-15,,,,,,H,2
+H 2 Footings,pid_h_002,complete,2024-01-15,2024-03-15,2024-03-15,,,,,,H,2
+H 3 Dug,pid_h_003,in progress,2024-02-01,2024-03-01,,,,,,,H,3
+H 12 Dug,pid_h_012,in progress,2024-02-10,2024-03-10,,,,,,,H,12
+H 12 Footings,pid_h_012,complete,2024-02-10,2024-04-10,2024-04-10,,,,,,H,12
+H 13 Dug,pid_h_013,in progress,2024-02-15,2024-03-15,,,,,,,H,13
+H 30 Dug,,in progress,2024-03-01,2024-04-01,,,,,,,H,30
+LE 1 Dug,pid_le_001,complete,2024-01-05,2024-02-05,2024-02-05,,,,,,LE,1
+LE 1 Footings,pid_le_001,complete,2024-01-05,2024-03-10,2024-03-10,,,,,,LE,1
+LE 1 Walls,pid_le_001,complete,2024-01-05,2024-04-20,2024-04-20,,,,,,LE,1
+LE 2 Dug,pid_le_002,in progress,2024-02-01,2024-03-01,,,,,,,LE,2
+AS 1 Dug,pid_as_001,in progress,2024-03-01,2024-04-01,,,,,,,AS,1
+AS 2 Dug,pid_as_002,in progress,2024-03-05,2024-04-05,,,,,,,AS,2
+A stray task with no lot number,,open,2024-01-01,2024-01-15,,,,,,,,

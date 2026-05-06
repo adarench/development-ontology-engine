@@ -1,0 +1,13 @@
+Data Type,Entity,Account ID,Account Name,Posting Date,Amount,Customer,Vendor,Memo/Description,DataMapper_Name
+Activity,Flagborough LLC,110-001,Cash,2024-01-15,-50000,Customer or Client name,XYZ Materials,Foundation materials,QB_Desktop
+Activity,Flagborough LLC,510-001,Inventory CIP - Lot,2024-01-15,50000,Customer or Client name,XYZ Materials,Foundation materials,QB_Desktop
+Activity,Flagborough LLC,110-001,Cash,2024-02-20,-25000,Customer or Client name,ABC Concrete,Concrete pour block 1,QB_Desktop
+Activity,Flagborough LLC,510-001,Inventory CIP - Lot,2024-02-20,25000,Customer or Client name,ABC Concrete,Concrete pour block 1,QB_Desktop
+Activity,Anderson Geneva LLC,510-002,Inventory CIP - Land,2024-02-10,75000,Customer or Client name,Land Trust,Land purchase,QB_Desktop
+Activity,Anderson Geneva LLC,260-001,Notes Payable,2024-02-10,-75000,Customer or Client name,Land Trust,Land purchase financing,QB_Desktop
+Activity,Arrowhead Springs Development LLC,510-003,Inventory CIP - Lot,2024-03-05,120000,Customer or Client name,Site Works Inc,Site development,QB_Desktop
+Activity,Arrowhead Springs Development LLC,110-003,Cash,2024-03-05,-120000,Customer or Client name,Site Works Inc,Site development,QB_Desktop
+Activity,Flagship EM Holdings LLC,110-004,Cash,2024-01-01,-10000,Customer or Client name,Vendor or Supplier name,Management fee,QB_Desktop
+Activity,Geneva Project Manager LLC,660-001,Soft Cost - Management,2024-01-01,10000,Customer or Client name,Vendor or Supplier name,Management fee,QB_Desktop
+Opening Balance,Flagborough LLC,110-001,Cash,2023-12-31,100000,Customer or Client name,Vendor or Supplier name,Opening balance,QB_Desktop
+Activity,drywall partners,510-999,Inventory CIP - Lot,2024-03-01,5000,Customer or Client name,Vendor or Supplier name,Should be dropped,QB_Desktop

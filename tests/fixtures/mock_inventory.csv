@@ -1,0 +1,12 @@
+subdiv,phase,lot_num,lot_status,entity
+H,Phase 1,1,active,BCPD
+H,Phase 1,2,active,BCPD
+H,Phase 1,3,active,BCPD
+H,Phase 2,12,active,BCPD
+H,Phase 2,13,active,BCPD
+H,Phase 3,30,active,BCPD
+LE,Phase 1,1,active,BCPD
+LE,Phase 1,2,active,BCPD
+AS,Phase 1,1,active,BCPD
+AS,Phase 1,2,active,BCPD
+AS,Phase 1,3,active,BCPD
