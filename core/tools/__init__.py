@@ -1,4 +1,5 @@
 from core.tools.base import Tool
+from core.tools.pipeline import PipelineTool
 from core.tools.gl_report import GLReportTool
 from core.tools.operating_state import OperatingStateTool
 from core.tools.operating_state_v2 import OperatingStateV2Tool
@@ -9,6 +10,7 @@ from core.tools.coverage_report import CoverageReportTool
 
 __all__ = [
     "Tool",
+    "PipelineTool",
     "GLReportTool",
     "OperatingStateTool",
     "OperatingStateV2Tool",

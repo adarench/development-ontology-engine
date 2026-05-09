@@ -1,4 +1,7 @@
 from core.steps.base import ToolStep, DeterministicToolStep, ProbabilisticToolStep, ProvenanceSummary
+from core.steps.registry import StepRegistry, ToolLoader
+from core.steps.script import ScriptStep, ProbabilisticScriptStep
+from core.steps.data_steps import ConnectorStep, QueryStep, ConnectorRegistry
 from core.steps.gl_clean import GLCleanStep
 from core.steps.gl_normalize import GLNormalizeStep
 from core.steps.gl_aggregate import GLAggregateStep
@@ -18,6 +21,13 @@ __all__ = [
     "DeterministicToolStep",
     "ProbabilisticToolStep",
     "ProvenanceSummary",
+    "StepRegistry",
+    "ToolLoader",
+    "ScriptStep",
+    "ProbabilisticScriptStep",
+    "ConnectorStep",
+    "QueryStep",
+    "ConnectorRegistry",
     "GLCleanStep",
     "GLNormalizeStep",
     "GLAggregateStep",

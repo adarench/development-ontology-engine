@@ -9,25 +9,29 @@ class ProvenanceSummary:
 
     Attached to Tool output so that LLMs (and ultimately users) can understand
     which parts of an answer are certain vs estimated.
+
+    Both deterministic_steps and probabilistic_steps store dicts with at least
+    "step" (display name) and "description" keys.
     """
 
-    deterministic_steps: list[str] = field(default_factory=list)
+    deterministic_steps: list[dict] = field(default_factory=list)
     probabilistic_steps: list[dict] = field(default_factory=list)
 
     def record(self, step: "ToolStep") -> None:
         if step.step_type == "deterministic":
-            self.deterministic_steps.append(step.__class__.__name__)
+            self.deterministic_steps.append(step.provenance_metadata())
         else:
-            self.probabilistic_steps.append(step.__class__.provenance_metadata())
+            self.probabilistic_steps.append(step.provenance_metadata())
 
     def to_markdown(self) -> str:
         if not self.deterministic_steps and not self.probabilistic_steps:
             return ""
         lines = ["## Data Provenance", ""]
         if self.deterministic_steps:
-            lines.append(
-                "**Certain (deterministic):** " + ", ".join(self.deterministic_steps)
-            )
+            lines.append("**Certain (deterministic):**")
+            for s in self.deterministic_steps:
+                desc = f" — {s['description']}" if s.get("description") else ""
+                lines.append(f"- {s['step']}{desc}")
         if self.probabilistic_steps:
             if self.deterministic_steps:
                 lines.append("")
@@ -37,8 +41,9 @@ class ProvenanceSummary:
                     s.get("probabilistic_type", "heuristic"), "~"
                 )
                 conf = s.get("confidence_level", 0.5)
+                desc = f" — {s['description']}" if s.get("description") else ""
                 lines.append(
-                    f"- {badge} **{s['step']}**: {s['method_description']} "
+                    f"- {badge} **{s['step']}**{desc} "
                     f"(confidence: {conf:.0%}, type: {s.get('probabilistic_type', 'heuristic')})"
                 )
                 for cav in s.get("caveats", []):
@@ -60,16 +65,26 @@ class ToolStep:
 
     Subclass DeterministicToolStep or ProbabilisticToolStep — do not extend
     ToolStep directly unless the step type is genuinely unknown.
+
+    Class attributes:
+        name:        display name shown in provenance and LLM context
+        description: one-line description of what this step does
     """
 
     step_type: ClassVar[str] = "deterministic"
+    name: ClassVar[str] = ""
+    description: ClassVar[str] = ""
 
     def run(self, data: Any = None) -> Any:
         raise NotImplementedError
 
     @classmethod
     def provenance_metadata(cls) -> dict:
-        return {"step": cls.__name__, "step_type": cls.step_type}
+        return {
+            "step": cls.name or cls.__name__,
+            "description": cls.description,
+            "step_type": cls.step_type,
+        }
 
 
 class DeterministicToolStep(ToolStep):
@@ -83,7 +98,11 @@ class DeterministicToolStep(ToolStep):
 
     @classmethod
     def provenance_metadata(cls) -> dict:
-        return {"step": cls.__name__, "step_type": "deterministic"}
+        return {
+            "step": cls.name or cls.__name__,
+            "description": cls.description,
+            "step_type": "deterministic",
+        }
 
 
 class ProbabilisticToolStep(ToolStep):
@@ -108,7 +127,8 @@ class ProbabilisticToolStep(ToolStep):
     @classmethod
     def provenance_metadata(cls) -> dict:
         return {
-            "step":               cls.__name__,
+            "step":               cls.name or cls.__name__,
+            "description":        cls.description,
             "step_type":          "probabilistic",
             "probabilistic_type": cls.probabilistic_type,
             "confidence_level":   cls.confidence_level,

@@ -368,7 +368,7 @@ User request
       ├─ ToolRouterTool                match to existing User-Built Tool?
       │         │
       │         ├─ match found ────────────────────────────────────────────┐
-      │         │                                                           │
+      │         │                                                          │
       │         └─ no match → Tool Builder Skill                           │
       │                           │                                        │
       │                           ├─ parse intent + entities               │
@@ -377,10 +377,10 @@ User request
       │                           ├─ surface probabilistic assumptions     │
       │                           ├─ verify each step before proceeding    │
       │                           └─ run constructed Tool ───────────────┐ │
-      │                                                                   │ │
+      │                                                                  │ │
       └───────────────────────────────────────────────────────────────── ┘ │
-                                                                            │
-                    Tool result + ProvenanceSummary + SourceReferences  ◄───┘
+                                                                           │
+                   Tool result + ProvenanceSummary + SourceReferences  ◄───┘
                                         │
                                         ▼
                          Agent synthesizes user-facing answer

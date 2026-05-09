@@ -100,7 +100,7 @@ class TestProvenanceSummary:
     def test_record_deterministic(self):
         ps = ProvenanceSummary()
         ps.record(_NullDeterministic())
-        assert "_NullDeterministic" in ps.deterministic_steps
+        assert any(s["step"] == "_NullDeterministic" for s in ps.deterministic_steps)
         assert ps.probabilistic_steps == []
 
     def test_record_probabilistic(self):
@@ -160,7 +160,7 @@ class TestProvenanceSummary:
         d = ps.to_dict()
         assert "deterministic_steps" in d
         assert "probabilistic_steps" in d
-        assert "_NullDeterministic" in d["deterministic_steps"]
+        assert any(s["step"] == "_NullDeterministic" for s in d["deterministic_steps"])
         assert d["probabilistic_steps"][0]["step"] == "_NullProbabilistic"
 
 
