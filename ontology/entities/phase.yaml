@@ -1,0 +1,277 @@
+# Generated from ontology/phase_state_v1.md (249 lines, authored prose).
+# After Phase 1, this YAML is the source of truth.
+
+entity_type: phase
+canonical_name: PhaseState
+business_description: >
+  A phase-level aggregate that combines budgeted expectations with actual performance
+  rolled up from LotState records. Answers "how is this phase performing against plan?"
+  PhaseState never stores lot-level detail — it summarizes it. LotState = lifecycle + actuals;
+  PhaseState = budget + comparison.
+vertical: construction
+schema_version: v1
+
+retrieval_tags:
+  - phase
+  - aggregate
+  - budget
+  - variance
+  - composition
+  - operational_state
+
+source_lineage:
+  - "ontology/phase_state_v1.md"
+  - "pipelines/build_phase_state.py"
+  - "LH Allocation 2025.10.xlsx - LH.csv"
+  - "Parkway Allocation 2025.10.xlsx - PF.csv"
+  - "financials/build_operating_state_v2_1_bcpd.py"
+
+example_queries:
+  - "What's the variance on Parkway Fields A1?"
+  - "How many lots are in VERTICAL_IN_PROGRESS in Lomond Heights phase 2?"
+  - "Which phases are transitioning between lifecycle stages?"
+
+field_definitions:
+  # Identity
+  - name: canonical_phase_id
+    type: string
+    description: "Composite key: {project_name}::{phase_name}. Must match phase_id used in LotState records."
+    aliases: [phase_id, primary_key]
+  - name: project_name
+    type: string
+    description: Name of the development project.
+  - name: phase_name
+    type: string
+    description: Name of the phase within the project.
+  # Composition (derived from LotState)
+  - name: lot_count_total
+    type: integer
+    description: Total lots linked to this phase.
+    derived: true
+  - name: lot_count_by_state
+    type: map
+    description: "Count of lots in each lot_state (e.g., {VERTICAL_IN_PROGRESS: 12, FINISHED_LOT: 8})."
+    derived: true
+  - name: lot_count_by_type
+    type: map
+    description: "Count of lots by lot_type (e.g., {SPEC: 15, PRESOLD: 5, null: 30})."
+    derived: true
+  - name: product_mix_pct
+    type: map
+    description: Percentage distribution by lot_type. Derived from lot_count_by_type / lot_count_total.
+    derived: true
+  # Expected / budget
+  - name: expected_direct_cost_total
+    type: decimal
+    description: Total budgeted direct costs (labor, materials, subs).
+    source_columns: ["Allocation sheet column 14 (ALLOCATION_DIRECT_DEV_COL)"]
+  - name: expected_indirect_cost_total
+    type: decimal
+    description: Total budgeted indirect/allocated costs (overhead, shared infra, G&A).
+    source_columns: ["Allocation sheet column 16 (ALLOCATION_INDIRECTS_COL)"]
+  - name: expected_total_cost
+    type: decimal
+    description: expected_direct_cost_total + expected_indirect_cost_total.
+    derived: true
+  - name: expected_cost_source
+    type: string
+    description: Identifier for the source of expected cost data (model version, allocation sheet name, reforecast label).
+  - name: expected_direct_cost_per_lot
+    type: decimal
+    description: expected_direct_cost_total / lot_count_total.
+    derived: true
+  - name: expected_indirect_cost_per_lot
+    type: decimal
+    description: expected_indirect_cost_total / lot_count_total.
+    derived: true
+  - name: expected_total_cost_per_lot
+    type: decimal
+    description: expected_total_cost / lot_count_total.
+    derived: true
+  # Actuals
+  - name: actual_cost_total
+    type: decimal
+    description: Sum of lot-level cost_to_date across all lots, plus any phase-level allocated costs not embedded at lot grain.
+    derived: true
+  - name: actual_cost_per_lot
+    type: decimal
+    description: actual_cost_total / lot_count_total.
+    derived: true
+  - name: actual_direct_cost_total
+    type: decimal
+    nullable: true
+    description: Actual direct costs at the phase level (when source data supports it).
+  - name: actual_indirect_cost_total
+    type: decimal
+    nullable: true
+    description: Actual indirect/allocated costs at the phase level (when source data supports it).
+  - name: cost_data_completeness
+    type: enum
+    description: Indicates how complete the actual cost data is.
+    enum_values: [FULL, PARTIAL, ALLOCATED_ONLY]
+  # Variance
+  - name: variance_total
+    type: decimal
+    description: actual_cost_total - expected_total_cost. Positive = over budget.
+    derived: true
+  - name: variance_per_lot
+    type: decimal
+    description: actual_cost_per_lot - expected_total_cost_per_lot.
+    derived: true
+  - name: variance_pct
+    type: decimal
+    description: variance_total / expected_total_cost. Null if expected is 0.
+    derived: true
+  - name: variance_meaningful
+    type: boolean
+    description: Whether the variance comparison is statistically/semantically reliable.
+    derived: true
+  - name: expected_cost_status
+    type: enum
+    description: Quality of the expected_cost source for this phase.
+    enum_values: [FULL, PARTIAL, MISSING]
+  - name: is_queryable
+    type: boolean
+    description: True iff expected_cost_status is FULL AND variance is meaningful.
+    derived: true
+  # Phase lifecycle
+  - name: phase_state
+    type: enum
+    description: Operational status of the phase. Derived from the most advanced lot via waterfall.
+    enum_values:
+      - PLANNED
+      - LAND_ACQUIRED
+      - HORIZONTAL_ACTIVE
+      - VERTICAL_ACTIVE
+      - SELLING
+      - CLOSED_OUT
+    derived: true
+  - name: phase_majority_state
+    type: enum
+    description: lot_state_group where the plurality of lots sit. Ties broken by most advanced.
+    enum_values: [PRE_DEVELOPMENT, HORIZONTAL, VERTICAL, DISPOSITION]
+    derived: true
+  - name: is_transitioning
+    type: boolean
+    description: True iff phase_state's group differs from phase_majority_state. Indicates the leading edge has advanced but the bulk hasn't.
+    derived: true
+  # Timing
+  - name: avg_days_in_state
+    type: decimal
+    nullable: true
+    description: Average days_in_state across active lots (excludes PROSPECT and CLOSED).
+    derived: true
+  - name: avg_days_since_purchase
+    type: decimal
+    nullable: true
+    description: Average days_since_purchase across lots with a purchase date.
+    derived: true
+  - name: expected_duration_days
+    type: integer
+    nullable: true
+    description: Budgeted total phase duration in days. Nullable until structured underwriting data confirms.
+  - name: phase_start_date
+    type: date
+    nullable: true
+    description: Earliest relevant lifecycle date across all lots in the phase.
+    derived: true
+  # Metadata
+  - name: as_of_date
+    type: date
+    description: The date this snapshot represents.
+  - name: last_computed_at
+    type: datetime
+    description: Timestamp when this PhaseState was last computed/refreshed.
+
+semantic_aliases:
+  - alias: phase
+    resolves_to: PhaseState
+  - alias: phase budget
+    resolves_to: expected_total_cost
+  - alias: phase actuals
+    resolves_to: actual_cost_total
+  - alias: budget vs actual
+    resolves_to: variance_total
+  - alias: over budget
+    resolves_to: variance_total
+    note: Positive variance means over budget.
+  - alias: phase status
+    resolves_to: phase_state
+
+relationships:
+  - name: aggregates_lots
+    target_entity: lot
+    cardinality: many
+    description: A phase aggregates many lots; lot_count_total is the cardinality.
+    via_field: canonical_phase_id
+  - name: belongs_to_project
+    target_entity: project
+    cardinality: one
+    description: Each phase belongs to exactly one project.
+
+approved_join_paths:
+  - name: phase_to_lots
+    target_entity: lot
+    join_keys: [project_name, phase_name]
+    cardinality: many
+  - name: phase_to_allocation
+    target_entity: phase
+    join_keys: [project_name, phase_name]
+    cardinality: one
+    note: Allocation sheets (LH, PF) are the canonical source for expected cost.
+
+confidence_rules:
+  - field: actual_cost_total
+    confidence: inferred
+    reason: Inherits inferred confidence from lot.cost_to_date (VF decoder v1).
+  - field: expected_total_cost
+    confidence: high
+    reason: Allocation sheets are source-owner-authored.
+  - field: variance_total
+    confidence: inferred
+    reason: Variance is only as confident as its weakest input — actual_cost_total is inferred.
+
+validation_rules:
+  - name: queryability_gate
+    rule: "is_queryable = (expected_cost_status == 'FULL') AND variance_meaningful. Only 3/125 phases pass in v2.1."
+    severity: info
+  - name: variance_pct_invariant
+    rule: "variance_pct is null when expected_total_cost is 0 or null."
+    severity: error
+  - name: phase_id_match
+    rule: "canonical_phase_id must exactly match the phase_id used in LotState records (deterministic aggregation requirement)."
+    severity: error
+
+semantic_warnings:
+  - name: per_lot_average_is_simple
+    applies_to: expected_total_cost_per_lot
+    message: >
+      v1 computes per-lot as a simple average (total / count). Real-world expected costs
+      vary by lot size and product type. Per-lot-type budgets are deferred to v2.
+  - name: variance_inherits_inferred
+    applies_to: variance_total
+    message: >
+      Variance is only as confident as actual_cost_total. v2.1 actuals are inferred via
+      VF decoder v1; do not promote variance figures to 'validated'.
+
+embedding_payload:
+  template: |
+    PhaseState — {canonical_name}
+    {business_description}
+    Aliases: {aliases}
+    Tags: {retrieval_tags}
+    Phase state waterfall: CLOSED_OUT → SELLING → VERTICAL_ACTIVE → HORIZONTAL_ACTIVE → LAND_ACQUIRED → PLANNED.
+    Variance sign convention: positive = over budget, negative = under budget.
+  fields_to_include:
+    - canonical_phase_id
+    - phase_state
+    - lot_count_total
+    - actual_cost_total
+    - expected_total_cost
+    - variance_total
+    - is_queryable
+
+historical_behavior: >
+  v1 phases used flat (project, lot) joins. v2.1 enforces the 3-tuple via lot.harmony_3tuple
+  to prevent Harmony double-count. is_queryable was added in v2.1 to gate variance reporting
+  on expected-cost completeness — only 3/125 phases pass today.
