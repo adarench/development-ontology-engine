@@ -5,10 +5,8 @@ from typing import Any
 
 import pandas as pd
 
-from core.connectors.base import Connector
 
-
-class GCSConnector(Connector):
+class GCSConnector:
     """Reads an xlsx (or other supported) blob from a Google Cloud Storage bucket.
 
     Authentication uses Application Default Credentials. Set up with:

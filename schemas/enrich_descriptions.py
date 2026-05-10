@@ -87,6 +87,12 @@ Each description must be DATA-CENTRIC. Describe:
     "Collateral Report"),
   • how it relates to OTHER fields in the same table when relevant.
 
+Every description MUST begin with the literal `field_name` followed by a colon
+and a space, e.g. `LotArea(sqft): Lot area in square feet, ...`. This is
+required so descriptions embed well for vector retrieval — the column name
+must appear at the start of the text, exactly as it appears in the source
+header (preserve casing, punctuation, whitespace).
+
 Use the table context and the OTHER fields in the same table to inform each
 description. For example, if you see paired fields like `gross_amount` and
 `net_amount`, describe their relationship. If field names follow a pattern

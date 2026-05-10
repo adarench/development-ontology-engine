@@ -23,6 +23,10 @@ class DatasourceField:
     sample_values: list[Any] = field(default_factory=list)
     raw_description: str | None = None
     description: str | None = None
+    # Pre-formatted text optimized for vector embedding. Built by
+    # `schemas.build_embedding_text` from the other fields. Refresh after
+    # description/sample changes.
+    embedding_text: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
