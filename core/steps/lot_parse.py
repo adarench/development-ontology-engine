@@ -6,6 +6,24 @@ import pandas as pd
 
 from core.steps.base import DeterministicToolStep
 
+
+def _is_real(v) -> bool:
+    """True if `v` is a real present value (not None, not NaN, not empty/blank).
+
+    Needed because bool(numpy.nan) is True. Plain `if v:` will admit NaN as
+    truthy, producing keys like 'FALLBACK_nan_nan' for fully-unparseable rows.
+    """
+    if v is None:
+        return False
+    try:
+        if pd.isna(v):
+            return False
+    except (TypeError, ValueError):
+        pass
+    if isinstance(v, str):
+        return bool(v.strip())
+    return bool(v)
+
 DEFAULT_STAGE_ALIASES: dict[str, str] = {
     "dug": "Dug", "excavation": "Dug", "excavate": "Dug",
     "footing": "Footings", "footings": "Footings",
@@ -56,7 +74,7 @@ class LotParseStep(DeterministicToolStep):
         df["stage_canonical"] = [c for _, _, _, c in parsed]
         df["lot_label"] = df.apply(
             lambda r: f"{r['project_code']} {r['lot_number']}".strip()
-            if r["project_code"] and r["lot_number"] else None,
+            if _is_real(r["project_code"]) and _is_real(r["lot_number"]) else None,
             axis=1,
         )
         df = self._assign_lot_keys(df)
@@ -101,7 +119,11 @@ class LotParseStep(DeterministicToolStep):
             if has_pid.loc[row.name]:
                 return row[pid_col]
             pc, ln = row["project_code"], row["lot_number"]
-            if pc and ln:
+            # NaN-safe: bool(numpy.nan) is True, which would wrongly enter the
+            # FALLBACK branch and produce 'FALLBACK_nan_nan' for fully
+            # unparseable rows on pandas >= 2.x. Use pd.notna() to detect real
+            # values regardless of None / NaN representation.
+            if _is_real(pc) and _is_real(ln):
                 return label_to_pid.get(
                     (pc, ln), f"FALLBACK_{pc}_{ln}".replace(" ", "_")
                 )
