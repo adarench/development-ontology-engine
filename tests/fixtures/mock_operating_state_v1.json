@@ -1,0 +1,95 @@
+{
+  "schema_version": "operating_state_v1",
+  "generated_at": "2024-05-01T00:00:00+00:00",
+  "data_quality": {
+    "lots_total": 10,
+    "projects_total": 3,
+    "phases_estimated": 5
+  },
+  "projects": [
+    {
+      "project_code": "H",
+      "lots_total": 5,
+      "avg_completion_pct": 0.35,
+      "stage_distribution": "Dug:3|Footings:1|Walls:1",
+      "financials": {
+        "gl_entity": "Flagborough LLC",
+        "project_total_cost": 75000.0,
+        "financial_confidence": "high",
+        "financial_notes": "GL entity matched."
+      },
+      "phases": [
+        {
+          "phase_id_estimated": "H P1",
+          "lots_in_phase": 3,
+          "dominant_stage": "Dug",
+          "avg_completion_pct": 0.22,
+          "lots": [
+            {"lot_number": "1", "stage": "Walls", "completion_pct": 0.33, "status": "in_progress"},
+            {"lot_number": "2", "stage": "Footings", "completion_pct": 0.22, "status": "in_progress"},
+            {"lot_number": "3", "stage": "Dug", "completion_pct": 0.11, "status": "in_progress"}
+          ]
+        },
+        {
+          "phase_id_estimated": "H P2",
+          "lots_in_phase": 2,
+          "dominant_stage": "Footings",
+          "avg_completion_pct": 0.22,
+          "lots": [
+            {"lot_number": "12", "stage": "Footings", "completion_pct": 0.22, "status": "in_progress"},
+            {"lot_number": "13", "stage": "Dug", "completion_pct": 0.11, "status": "in_progress"}
+          ]
+        }
+      ]
+    },
+    {
+      "project_code": "LE",
+      "lots_total": 2,
+      "avg_completion_pct": 0.44,
+      "stage_distribution": "Walls:1|Dug:1",
+      "financials": {
+        "gl_entity": "Anderson Geneva LLC",
+        "project_total_cost": 0.0,
+        "financial_confidence": "low",
+        "financial_notes": "GL entity mapped but no Activity rows found."
+      },
+      "phases": [
+        {
+          "phase_id_estimated": "LE P1",
+          "lots_in_phase": 2,
+          "dominant_stage": "Dug",
+          "avg_completion_pct": 0.44,
+          "lots": [
+            {"lot_number": "1", "stage": "Walls", "completion_pct": 0.33, "status": "in_progress"},
+            {"lot_number": "2", "stage": "Dug", "completion_pct": 0.11, "status": "in_progress"}
+          ]
+        }
+      ]
+    },
+    {
+      "project_code": "AS",
+      "lots_total": 3,
+      "avg_completion_pct": 0.11,
+      "stage_distribution": "Dug:3",
+      "financials": {
+        "gl_entity": "Arrowhead Springs Development LLC",
+        "project_total_cost": 120000.0,
+        "financial_confidence": "high",
+        "financial_notes": "GL entity matched."
+      },
+      "phases": [
+        {
+          "phase_id_estimated": "AS P1",
+          "lots_in_phase": 3,
+          "dominant_stage": "Dug",
+          "avg_completion_pct": 0.11,
+          "lots": [
+            {"lot_number": "1", "stage": "Dug", "completion_pct": 0.11, "status": "in_progress"},
+            {"lot_number": "2", "stage": "Dug", "completion_pct": 0.11, "status": "in_progress"},
+            {"lot_number": "3", "stage": "Dug", "completion_pct": 0.11, "status": "in_progress"}
+          ]
+        }
+      ]
+    }
+  ]
+}

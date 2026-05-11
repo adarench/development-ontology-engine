@@ -1,0 +1,8 @@
+entity_name,posting_date,account_code,amount,project_code,lot,memo_1,description,batch_description,account_name,account_type
+Building Construction Partners LLC,2024-01-15,510-001,50000,H,1,Foundation,Foundation materials,,Inventory CIP,Asset
+Building Construction Partners LLC,2024-01-15,510-001,50000,H,1,Foundation,Foundation materials,,Inventory CIP,Asset
+Building Construction Partners LLC,2024-02-20,510-001,25000,H,2,Concrete,Concrete pour,,Inventory CIP,Asset
+Building Construction Partners LLC,2024-03-05,510-002,120000,AS,1,Site dev,Site development,,Inventory CIP,Asset
+Building Construction Partners LLC,2024-03-10,510-001,15000,H,12,Footings,Footings pour,,Inventory CIP,Asset
+Building Construction Partners LLC,2024-04-01,510-003,80000,LE,1,Walls,Wall forms,,Inventory CIP,Asset
+Other Entity LLC,2024-01-01,110-001,10000,OTHER,99,Misc,Misc transaction,,Cash,Asset

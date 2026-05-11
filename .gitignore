@@ -40,3 +40,4 @@ __pycache__/
 
 # --- Hand-curated spec CSVs that ARE tracked (override the *.csv rule) ---
 !docs/field_map_v0.csv
+!tests/fixtures/*.csv

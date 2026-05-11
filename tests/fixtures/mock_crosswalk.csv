@@ -1,0 +1,10 @@
+source_system,source_value,canonical_value,confidence,canonical_entity
+clickup_subdivision,H,Park,high,BCPD
+clickup_subdivision,LE,Anderson Geneva,high,BCPD
+clickup_subdivision,AS,Arrowhead Springs,high,BCPD
+gl_project_code,H,Park,high,BCPD
+gl_project_code,LE,Anderson Geneva,high,BCPD
+gl_project_code,AS,Arrowhead Springs,high,BCPD
+entity_name,Flagborough LLC,Park,high,BCPD
+entity_name,Anderson Geneva LLC,Anderson Geneva,high,BCPD
+entity_name,Arrowhead Springs Development LLC,Arrowhead Springs,high,BCPD
