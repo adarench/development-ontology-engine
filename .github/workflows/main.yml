@@ -1,0 +1,3 @@
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/
+python3 -m bedrock.workflows.cli all
+git diff --exit-code output/runtime_demo/
