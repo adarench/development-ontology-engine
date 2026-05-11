@@ -1,0 +1,952 @@
+{
+  "total": 12,
+  "passed": 6,
+  "failed": 6,
+  "pass_rate": 0.5,
+  "by_category": {
+    "overlapping_names": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "crosswalk": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "allocation_ambiguity": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "inferred_caveat": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "phase_ambiguity": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "commercial_isolation": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "canonical_promotion": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "source_conflict": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "margin_reconstruction": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "org_wide_refusal": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "aultf_b_correction": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1
+    },
+    "lineage_integrity": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "by_assertion": {
+    "must_distinguish_overlapping_names": {
+      "passed": 1,
+      "failed": 0
+    },
+    "must_return_guardrail_file": {
+      "passed": 5,
+      "failed": 3
+    },
+    "must_surface_warning": {
+      "passed": 3,
+      "failed": 3
+    },
+    "must_resolve_crosswalk": {
+      "passed": 1,
+      "failed": 0
+    },
+    "must_not_return_entity_id_matching": {
+      "passed": 1,
+      "failed": 0
+    },
+    "must_have_lineage_including": {
+      "passed": 6,
+      "failed": 2
+    },
+    "must_return_entity": {
+      "passed": 4,
+      "failed": 0
+    },
+    "must_not_promote_inferred_to_validated": {
+      "passed": 1,
+      "failed": 0
+    },
+    "lineage_hashes_match_disk": {
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "scenarios": [
+    {
+      "name": "harmony_lot_101_distinct_in_mf1_vs_b1",
+      "category": "overlapping_names",
+      "narrative": "An accountant asks 'what is the cost picture for Harmony lot 101?'. There are TWO physical assets: lot 101 in MF1 (townhome) and lot 101 in B1 (single-family). v2.0 used a flat (project, lot) join and conflated $443K of spend onto the wrong inventory row. The retrieval system must surface BOTH lots distinctly so the accountant can see they are not the same asset.",
+      "query": "What is the cost picture for Harmony lot 101?",
+      "passed": true,
+      "passes": 3,
+      "fails": 0,
+      "pack_id": "d9256ac9861aafb3",
+      "pack_token_count": 1584,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 441.3480758666992,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_distinguish_overlapping_names",
+          "description": "must distinguish overlapping names: ['lot:Harmony::MF1::101', 'lot:Harmony::B1::101']",
+          "passed": true,
+          "message": "all distinguished entities present",
+          "evidence": {
+            "expected_all_of": [
+              "lot:Harmony::MF1::101",
+              "lot:Harmony::B1::101"
+            ],
+            "missing": [],
+            "returned_entity_ids": [
+              "lot:Harmony::B1::101",
+              "lot:Harmony::MF1::101",
+              "lot:Harmony::MF1::76",
+              "lot:Harmony::MF1::85"
+            ]
+          }
+        },
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_harmony_3tuple_join` must surface",
+          "passed": true,
+          "message": "guardrail chunk found",
+          "evidence": {
+            "target_substring": "guardrail_harmony_3tuple_join",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_surface_warning",
+          "description": "pack must surface a warning matching `/inferred|do not promote/`",
+          "passed": true,
+          "message": "matched warnings: [\"[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'.\"]",
+          "evidence": {
+            "pattern": "inferred|do not promote",
+            "matched_warnings": [
+              "[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'."
+            ],
+            "all_warnings": [
+              "[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "sctlot_resolves_to_scattered_lots_not_scarlet_ridge",
+      "category": "crosswalk",
+      "narrative": "A finance lead asks about 'SctLot cost'. In the raw VF GL, SctLot is a vendor-system label for the Scattered Lots program. v2.0 mistakenly bucketed $6.55M of SctLot spend into the Scarlet Ridge project, inflating Scarlet by ~46%. The system must resolve SctLot to Scattered Lots and must NOT silently include Scarlet Ridge as the canonical answer.",
+      "query": "What is the actual cost on SctLot?",
+      "passed": false,
+      "passes": 3,
+      "fails": 1,
+      "pack_id": "f9f02a8906b52494",
+      "pack_token_count": 1400,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 179.98814582824707,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_resolve_crosswalk",
+          "description": "`SctLot` must resolve to `Scattered Lots`",
+          "passed": true,
+          "message": "canonical `Scattered Lots` present",
+          "evidence": {
+            "source_value": "SctLot",
+            "canonical_substring": "Scattered Lots",
+            "wrong_canonical_substring": null,
+            "canonical_present": true,
+            "wrong_present": false
+          }
+        },
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_sctlot_scattered_lots` must surface",
+          "passed": true,
+          "message": "guardrail chunk found",
+          "evidence": {
+            "target_substring": "guardrail_sctlot_scattered_lots",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_chunks_v2_bcpd/projects/project_scattered_lots.md",
+              "data/reports/v2_0_to_v2_1_change_log.md",
+              "docs/ontology_v0.md",
+              "output/agent_chunks_v2_bcpd/coverage/coverage_no_gl_projects.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "data/reports/v2_0_to_v2_1_change_log.md",
+              "docs/ontology_v0.md",
+              "output/agent_chunks_v2_bcpd/coverage/coverage_no_gl_projects.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/agent_chunks_v2_bcpd/projects/project_scattered_lots.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_not_return_entity_id_matching",
+          "description": "no hit may have entity_id matching `/^project:Scarlet Ridge$/`",
+          "passed": true,
+          "message": "no offending hits",
+          "evidence": {
+            "pattern": "^project:Scarlet Ridge$",
+            "offenders": []
+          }
+        },
+        {
+          "name": "must_surface_warning",
+          "description": "pack must surface a warning matching `/inferred|Scattered Lots|do not promote/`",
+          "passed": false,
+          "message": "no warning matched /inferred|Scattered Lots|do not promote/; got: []",
+          "evidence": {
+            "pattern": "inferred|Scattered Lots|do not promote",
+            "matched_warnings": [],
+            "all_warnings": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "range_row_cost_must_not_allocate_to_lots",
+      "category": "allocation_ambiguity",
+      "narrative": "A land manager asks 'allocate the range row cost to specific HarmCo lots'. $45.75M of GL postings (~4,020 rows, 8 VF codes) span multiple lots and live at project+phase grain only. They cannot be allocated to specific lots without source-owner method selection (equal split, sales-weighted, fixed proportional). The system must surface the range-row guardrail and refuse to fabricate per-lot allocations.",
+      "query": "Allocate the range row cost to specific HarmCo lots and show me per-lot totals",
+      "passed": false,
+      "passes": 2,
+      "fails": 1,
+      "pack_id": "11789c58d41e78b4",
+      "pack_token_count": 1312,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 281.21495246887207,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_range_rows_not_lot_level` must surface",
+          "passed": true,
+          "message": "guardrail chunk found",
+          "evidence": {
+            "target_substring": "guardrail_range_rows_not_lot_level",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_range_shell_rows.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_missing_cost_is_not_zero.md",
+              "output/agent_chunks_v2_bcpd/projects/project_meadow_creek.md",
+              "output/agent_chunks_v2_bcpd/projects/project_salem_fields.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_missing_cost_is_not_zero.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_range_shell_rows.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/projects/project_meadow_creek.md",
+              "output/agent_chunks_v2_bcpd/projects/project_salem_fields.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `cost_source_range_shell_rows`",
+          "passed": true,
+          "message": "lineage cites a matching file",
+          "evidence": {
+            "target_substring": "cost_source_range_shell_rows",
+            "lineage_files": [
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_missing_cost_is_not_zero.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_range_shell_rows.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/projects/project_meadow_creek.md",
+              "output/agent_chunks_v2_bcpd/projects/project_salem_fields.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_surface_warning",
+          "description": "pack must surface a warning matching `/inferred|do not promote/`",
+          "passed": false,
+          "message": "no warning matched /inferred|do not promote/; got: []",
+          "evidence": {
+            "pattern": "inferred|do not promote",
+            "matched_warnings": [],
+            "all_warnings": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "per_lot_actual_cost_must_carry_inferred_caveat",
+      "category": "inferred_caveat",
+      "narrative": "A controller asks 'what's the actual cost on Harmony B1 lot 101?'. The vf_actual_cost_3tuple_usd field is computed by the v1 VF decoder, which is heuristic-driven and NOT source-owner-validated. The system must cite the inferred-decoder caveat and lineage the decoder report.",
+      "query": "What is the actual cost of Harmony B1 lot 101?",
+      "passed": false,
+      "passes": 3,
+      "fails": 1,
+      "pack_id": "2877627bd0303cbc",
+      "pack_token_count": 1586,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 193.68386268615723,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_return_entity",
+          "description": "`lot:Harmony::B1::101` must appear in retrieved hits",
+          "passed": true,
+          "message": "found lot:Harmony::B1::101 in hits",
+          "evidence": {
+            "target": "lot:Harmony::B1::101",
+            "returned_entity_ids": [
+              "lot:Harmony::B1::101",
+              "lot:Harmony::B1::101.0",
+              "lot:Harmony::MF1::101",
+              "lot:Harmony::B1::163"
+            ]
+          }
+        },
+        {
+          "name": "must_surface_warning",
+          "description": "pack must surface a warning matching `/inferred|VF decoder|not source-owner/`",
+          "passed": true,
+          "message": "matched warnings: [\"[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'.\"]",
+          "evidence": {
+            "pattern": "inferred|VF decoder|not source-owner",
+            "matched_warnings": [
+              "[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'."
+            ],
+            "all_warnings": [
+              "[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'."
+            ]
+          }
+        },
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_inferred_decoder_rules` must surface",
+          "passed": false,
+          "message": "no chunk contained 'guardrail_inferred_decoder_rules'; files=['output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md', 'output/agent_chunks_v2_bcpd/projects/project_harmony.md', 'data/reports/vf_lot_code_decoder_v1_report.md', 'docs/ontology_v0.md', 'output/bcpd_state_qa_examples.md', 'output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'data/reports/vf_lot_code_decoder_v1_report.md', 'docs/ontology_v0.md', 'output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md', 'output/agent_chunks_v2_bcpd/projects/project_harmony.md', 'output/bcpd_state_qa_examples.md', 'output/operating_state_v2_1_bcpd.json']",
+          "evidence": {
+            "target_substring": "guardrail_inferred_decoder_rules",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "docs/ontology_v0.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "docs/ontology_v0.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `vf_lot_code_decoder_v1`",
+          "passed": true,
+          "message": "lineage cites a matching file",
+          "evidence": {
+            "target_substring": "vf_lot_code_decoder_v1",
+            "lineage_files": [
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "docs/ontology_v0.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "phase_a_ambiguous_across_projects",
+      "category": "phase_ambiguity",
+      "narrative": "A new analyst asks 'what is phase A?'. There are multiple projects with a phase 'A' (Salem Fields A, Eagle Vista A, etc.). The retrieval system must surface multiple project-scoped phase entities so the analyst sees the ambiguity, not a single arbitrary winner.",
+      "query": "What is phase A?",
+      "passed": true,
+      "passes": 2,
+      "fails": 0,
+      "pack_id": "e2e6bc1acb59f6f9",
+      "pack_token_count": 1121,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 175.66418647766113,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_return_entity",
+          "description": "`phase:Salem Fields::A` must appear in retrieved hits",
+          "passed": true,
+          "message": "found phase:Salem Fields::A in hits",
+          "evidence": {
+            "target": "phase:Salem Fields::A",
+            "returned_entity_ids": [
+              "phase:Salem Fields::A",
+              "phase:Eagle Vista::A",
+              "phase:Ammon::TBD07",
+              "phase:Erda::TBD07",
+              "phase:Cedar Glen::TBD07",
+              "phase:Parkway Fields::A1"
+            ]
+          }
+        },
+        {
+          "name": "must_return_entity",
+          "description": "`phase:Eagle Vista::A` must appear in retrieved hits",
+          "passed": true,
+          "message": "found phase:Eagle Vista::A in hits",
+          "evidence": {
+            "target": "phase:Eagle Vista::A",
+            "returned_entity_ids": [
+              "phase:Salem Fields::A",
+              "phase:Eagle Vista::A",
+              "phase:Ammon::TBD07",
+              "phase:Erda::TBD07",
+              "phase:Cedar Glen::TBD07",
+              "phase:Parkway Fields::A1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "harmco_xx_commercial_isolated_from_residential_lots",
+      "category": "commercial_isolation",
+      "narrative": "A pricing analyst asks 'what's the total cost on HarmCo'. HarmCo X-X parcels (~$2.6M, 205 rows) are commercial parcels \u2014 NOT residential lots. The system must surface the commercial-not-residential guardrail so the analyst knows to exclude commercial when reporting per-lot costs.",
+      "query": "What is the total cost on HarmCo and per-lot averages?",
+      "passed": false,
+      "passes": 0,
+      "fails": 2,
+      "pack_id": "0e67e525473433e4",
+      "pack_token_count": 968,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 183.49099159240723,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_commercial_not_residential` must surface",
+          "passed": false,
+          "message": "no chunk contained 'guardrail_commercial_not_residential'; files=['output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md', 'output/agent_chunks_v2_bcpd/projects/project_ammon.md', 'output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md', 'output/agent_chunks_v2_bcpd/projects/project_eagle_vista.md', 'output/agent_chunks_v2_bcpd/projects/project_eastbridge.md', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/agent_chunks_v2_bcpd/projects/project_erda.md', 'output/operating_state_v2_1_bcpd.json', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md', 'output/agent_chunks_v2_bcpd/projects/project_ammon.md', 'output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md', 'output/agent_chunks_v2_bcpd/projects/project_eagle_vista.md', 'output/agent_chunks_v2_bcpd/projects/project_eastbridge.md', 'output/agent_chunks_v2_bcpd/projects/project_erda.md', 'output/operating_state_v2_1_bcpd.json']",
+          "evidence": {
+            "target_substring": "guardrail_commercial_not_residential",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/agent_chunks_v2_bcpd/projects/project_eagle_vista.md",
+              "output/agent_chunks_v2_bcpd/projects/project_eastbridge.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/agent_chunks_v2_bcpd/projects/project_erda.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/agent_chunks_v2_bcpd/projects/project_eagle_vista.md",
+              "output/agent_chunks_v2_bcpd/projects/project_eastbridge.md",
+              "output/agent_chunks_v2_bcpd/projects/project_erda.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `cost_source_commercial_parcels`",
+          "passed": false,
+          "message": "no lineage entry contained 'cost_source_commercial_parcels'; lineage=['output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md', 'output/agent_chunks_v2_bcpd/projects/project_ammon.md', 'output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md', 'output/agent_chunks_v2_bcpd/projects/project_eagle_vista.md', 'output/agent_chunks_v2_bcpd/projects/project_eastbridge.md', 'output/agent_chunks_v2_bcpd/projects/project_erda.md', 'output/operating_state_v2_1_bcpd.json']",
+          "evidence": {
+            "target_substring": "cost_source_commercial_parcels",
+            "lineage_files": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/projects/project_ammon.md",
+              "output/agent_chunks_v2_bcpd/projects/project_cedar_glen.md",
+              "output/agent_chunks_v2_bcpd/projects/project_eagle_vista.md",
+              "output/agent_chunks_v2_bcpd/projects/project_eastbridge.md",
+              "output/agent_chunks_v2_bcpd/projects/project_erda.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "inferred_decoder_must_not_promote_to_validated",
+      "category": "canonical_promotion",
+      "narrative": "A reporting analyst asks 'is Harmony lot cost validated by Finance?'. The honest answer is NO \u2014 the v1 decoder is inferred until source-owner sign-off. If the system surfaces an entity with confidence='inferred' inside a section that uses 'validated' loosely, that's a quiet promotion bug. This assertion catches it.",
+      "query": "Is Harmony lot 101 cost validated, or inferred?",
+      "passed": true,
+      "passes": 3,
+      "fails": 0,
+      "pack_id": "9935e6bef04ca6d5",
+      "pack_token_count": 1597,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 197.60823249816895,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_not_promote_inferred_to_validated",
+          "description": "inferred-confidence hits must not be promoted to 'validated'",
+          "passed": true,
+          "message": "no promotion observed",
+          "evidence": {
+            "offenders": []
+          }
+        },
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_inferred_decoder_rules` must surface",
+          "passed": true,
+          "message": "guardrail chunk found",
+          "evidence": {
+            "target_substring": "guardrail_inferred_decoder_rules",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_surface_warning",
+          "description": "pack must surface a warning matching `/inferred|do not promote/`",
+          "passed": true,
+          "message": "matched warnings: [\"[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'.\"]",
+          "evidence": {
+            "pattern": "inferred|do not promote",
+            "matched_warnings": [
+              "[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'."
+            ],
+            "all_warnings": [
+              "[from entity] [lot.cost_to_date] Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated. Cite as 'inferred' confidence. Do not promote to 'validated'."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "dr_and_vf_have_disjoint_semantics_no_silent_combine",
+      "category": "source_conflict",
+      "narrative": "A controller asks 'reconcile DataRails and Vertical Financials cost on Harmony for 2018-2025'. DataRails is legacy 2016-17 (with 2.16x row duplication), VF is the primary 2018-25 lot-cost source, and QB Register is 2025 vendor/cash on a different chart of accounts. They are NEVER combined raw. The system must surface the cost-source guardrails so the controller sees the semantic boundary.",
+      "query": "Reconcile DataRails and Vertical Financials cost on Harmony 2018-2025",
+      "passed": true,
+      "passes": 2,
+      "fails": 0,
+      "pack_id": "df82ce77da5221c0",
+      "pack_token_count": 1582,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 265.70701599121094,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `cost_source`",
+          "passed": true,
+          "message": "lineage cites a matching file",
+          "evidence": {
+            "target_substring": "cost_source",
+            "lineage_files": [
+              "data/reports/v2_0_to_v2_1_change_log.md",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_read_only_qa.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/agent_chunks_v2_bcpd/sources/source_gl_datarails_38col.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `change_log`",
+          "passed": true,
+          "message": "lineage cites a matching file",
+          "evidence": {
+            "target_substring": "change_log",
+            "lineage_files": [
+              "data/reports/v2_0_to_v2_1_change_log.md",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_read_only_qa.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/agent_chunks_v2_bcpd/sources/source_gl_datarails_38col.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "margin_reconstruction_must_inherit_inferred_caveat",
+      "category": "margin_reconstruction",
+      "narrative": "An asset manager asks 'what's the margin on Harmony B1 lot 101?'. To compute margin you need vf_actual_cost_3tuple_usd (inferred) + vert_close_date / sale_price. Even if the system surfaces all the inputs correctly, it must carry the inferred-cost caveat through \u2014 variance/margin inherits the weakest input's confidence.",
+      "query": "What is the margin on Harmony B1 lot 101?",
+      "passed": false,
+      "passes": 1,
+      "fails": 2,
+      "pack_id": "9ca9b21bbfd02f9a",
+      "pack_token_count": 1670,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 180.8788776397705,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_return_entity",
+          "description": "`lot:Harmony::B1::101` must appear in retrieved hits",
+          "passed": true,
+          "message": "found lot:Harmony::B1::101 in hits",
+          "evidence": {
+            "target": "lot:Harmony::B1::101",
+            "returned_entity_ids": [
+              "lot:Harmony::B1::101",
+              "lot:Harmony::B1::101.0",
+              "lot:Harmony::MF1::101",
+              "lot:Harmony::B1::125"
+            ]
+          }
+        },
+        {
+          "name": "must_surface_warning",
+          "description": "pack must surface a warning matching `/inferred|do not promote/`",
+          "passed": false,
+          "message": "no warning matched /inferred|do not promote/; got: []",
+          "evidence": {
+            "pattern": "inferred|do not promote",
+            "matched_warnings": [],
+            "all_warnings": []
+          }
+        },
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_inferred_decoder_rules` must surface",
+          "passed": false,
+          "message": "no chunk contained 'guardrail_inferred_decoder_rules'; files=['output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md', 'output/agent_chunks_v2_bcpd/projects/project_harmony.md', 'data/reports/vf_lot_code_decoder_v1_report.md', 'output/bcpd_state_qa_examples.md', 'output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md', 'output/bcpd_state_qa_examples.md', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'output/operating_state_v2_1_bcpd.json', 'data/reports/vf_lot_code_decoder_v1_report.md', 'output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md', 'output/agent_chunks_v2_bcpd/projects/project_harmony.md', 'output/bcpd_state_qa_examples.md', 'output/operating_state_v2_1_bcpd.json']",
+          "evidence": {
+            "target_substring": "guardrail_inferred_decoder_rules",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "data/reports/vf_lot_code_decoder_v1_report.md",
+              "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+              "output/agent_chunks_v2_bcpd/projects/project_harmony.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "org_wide_query_must_surface_refusal_guardrail",
+      "category": "org_wide_refusal",
+      "narrative": "A board member asks 'what are our org-wide actuals across all entities?'. Hillcrest and Flagship Belmont have GL data only through 2017-02 \u2014 frozen. Org-wide rollups are explicitly out of scope. The system must surface the org-wide-unavailable guardrail so the board member sees the data limit.",
+      "query": "What are our org-wide actuals across BCPD, Hillcrest, and Flagship Belmont?",
+      "passed": true,
+      "passes": 2,
+      "fails": 0,
+      "pack_id": "349bf2d02e6c598d",
+      "pack_token_count": 1353,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 194.2458152770996,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_return_guardrail_file",
+          "description": "a guardrail chunk whose path contains `guardrail_orgwide_unavailable` must surface",
+          "passed": true,
+          "message": "guardrail chunk found",
+          "evidence": {
+            "target_substring": "guardrail_orgwide_unavailable",
+            "files_in_pack": [
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_bcpd_only.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_orgwide_unavailable.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_orgwide_unavailable.md",
+              "output/agent_context_v2_1_bcpd.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "docs/source_to_field_map.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/agent_chunks_v2_bcpd/projects/project_willowcreek.md",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "output/operating_state_v2_1_bcpd.json",
+              "docs/source_to_field_map.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_bcpd_only.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_orgwide_unavailable.md",
+              "output/agent_chunks_v2_bcpd/projects/project_willowcreek.md",
+              "output/agent_context_v2_1_bcpd.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `agent_context_v2_1_bcpd`",
+          "passed": true,
+          "message": "lineage cites a matching file",
+          "evidence": {
+            "target_substring": "agent_context_v2_1_bcpd",
+            "lineage_files": [
+              "docs/source_to_field_map.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_bcpd_only.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_orgwide_unavailable.md",
+              "output/agent_chunks_v2_bcpd/projects/project_willowcreek.md",
+              "output/agent_context_v2_1_bcpd.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "aultf_b_suffix_correction_visible_in_lineage",
+      "category": "aultf_b_correction",
+      "narrative": "An auditor asks 'what changed for AultF in v2.1?'. v2.1 corrected $4.0M / 1,499 rows from B \u2192 B1. The change log carries the correction story. The system must lineage-cite the change_log so the auditor can verify the delta themselves.",
+      "query": "What changed for AultF in v2.1?",
+      "passed": false,
+      "passes": 1,
+      "fails": 1,
+      "pack_id": "56f50e6f2da496fe",
+      "pack_token_count": 1599,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 176.99098587036133,
+      "error": null,
+      "assertions": [
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `change_log`",
+          "passed": true,
+          "message": "lineage cites a matching file",
+          "evidence": {
+            "target_substring": "change_log",
+            "lineage_files": [
+              "data/reports/v2_0_to_v2_1_change_log.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_bcpd_only.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_context_v2_1_bcpd.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        },
+        {
+          "name": "must_have_lineage_including",
+          "description": "pack lineage must cite a file containing `parkway_fields`",
+          "passed": false,
+          "message": "no lineage entry contained 'parkway_fields'; lineage=['data/reports/v2_0_to_v2_1_change_log.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_bcpd_only.md', 'output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md', 'output/agent_context_v2_1_bcpd.md', 'output/bcpd_state_qa_examples.md', 'output/operating_state_v2_1_bcpd.json']",
+          "evidence": {
+            "target_substring": "parkway_fields",
+            "lineage_files": [
+              "data/reports/v2_0_to_v2_1_change_log.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_bcpd_only.md",
+              "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+              "output/agent_context_v2_1_bcpd.md",
+              "output/bcpd_state_qa_examples.md",
+              "output/operating_state_v2_1_bcpd.json"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "lineage_content_hashes_verify_against_disk",
+      "category": "lineage_integrity",
+      "narrative": "Any pack the system emits must be self-verifying: a downstream consumer must be able to confirm 'this fact came from a file that's still on disk and unchanged'. If a source file is mutated between pack-time and read-time, the lineage hash mismatch must catch it. This scenario asserts integrity on a normal query \u2014 verifying the framework works on current state.",
+      "query": "Harmony 3-tuple correction overview",
+      "passed": true,
+      "passes": 1,
+      "fails": 0,
+      "pack_id": "e52c63944d66b691",
+      "pack_token_count": 1788,
+      "pack_truncated": false,
+      "sources_used": [
+        "entity",
+        "chunk",
+        "routed"
+      ],
+      "ms_elapsed": 171.04005813598633,
+      "error": null,
+      "assertions": [
+        {
+          "name": "lineage_hashes_match_disk",
+          "description": "every lineage content_hash must match the on-disk file",
+          "passed": true,
+          "message": "all lineage hashes verify",
+          "evidence": {
+            "offenders": []
+          }
+        }
+      ]
+    }
+  ]
+}
