@@ -159,6 +159,47 @@ tar -czf bcpd-operating-state-v2.1.tar.gz -C skills bcpd-operating-state/
 - [ ] Upload the archive to the Skill distribution platform (per their
       docs — out of scope for this checklist).
 
+## Known package boundary — entity retrieval is NOT bundled in v0.1
+
+The shipped Skill at `dist/bcpd-operating-state/` includes the retrieval
+orchestration and the chunk + routed retrievers, but **deliberately does
+not include**:
+
+- `bedrock/embeddings/` (build.py, hashing.py, local.py, voyage.py, cache.py, payload.py)
+- `bedrock/retrieval/services/entity_retriever.py`
+- `output/bedrock/entity_index.parquet` (1.18 MB, 5,576 entities)
+
+This is intentional for v0.1: the six workflow tools wire
+`BcpdContext(add_entity_source=False)` (the default), so the orchestrator
+runs `ChunkSource + RoutedSource` only — no vector entity retrieval is
+needed on the runtime path. See
+`docs/embedding_retrieval_audit_bcpd_v0_1.md` §9, weakness 7.10 for the
+audit finding.
+
+What happens if a caller flips `add_entity_source=True` inside the
+package: `core/tools/bcpd_workflows.py` catches the missing import /
+missing parquet and raises an explicit `RuntimeError`:
+
+> EntitySource is not bundled in BCPD Skill v0.1; use ChunkSource +
+> RoutedSource (the default), or rebuild the package with the entity
+> retrieval stack (bedrock/embeddings/, bedrock/retrieval/services/,
+> and output/bedrock/entity_index.parquet).
+
+When to revisit:
+
+- If a future Skill release needs `add_entity_source=True`, extend
+  `scripts/package_bcpd_skill.py` to include the three paths above as
+  `runtime-required` and bump the MANIFEST's `total_files` budget.
+- If `state/aliases.json` is to be loaded inside the package (currently
+  read by EntityRetriever at runtime), package it under
+  `state/aliases.json` alongside the rest of the state files.
+
+- [ ] If shipping with `add_entity_source=True`: update package script
+      to include `bedrock/embeddings/`, `bedrock/retrieval/services/`,
+      `output/bedrock/entity_index.parquet`, and `state/aliases.json`.
+      Otherwise: confirm the explicit refusal path in
+      `core/tools/bcpd_workflows.py` is unchanged.
+
 ## Rollback plan
 
 If the Skill needs to be rolled back after ship:

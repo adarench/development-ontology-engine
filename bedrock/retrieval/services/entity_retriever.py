@@ -86,6 +86,7 @@ class EntityRetriever:
         embedder: Optional[EmbeddingProvider] = None,
         score_weights: Optional[Dict[str, float]] = None,
         trace_window: int = 10,
+        aliases_path: Optional[Path] = None,
     ) -> None:
         self.state_registry = state_registry
         self.ontology_registry = ontology_registry
@@ -98,6 +99,14 @@ class EntityRetriever:
         self.embedder = embedder
         self.score_weights = score_weights or dict(DEFAULT_WEIGHTS)
         self.trace_window = trace_window
+        # Defaults to <repo_root>/state/aliases.json — the centralized alias
+        # table seeded from routing rules and the v1 decoder report.
+        self.aliases_path = (
+            Path(aliases_path)
+            if aliases_path is not None
+            else Path(self.index_path).resolve().parents[2] / "state" / "aliases.json"
+        )
+        self._aliases_loaded_count = 0
 
         self._load_index()
         self._build_idf()
@@ -156,13 +165,60 @@ class EntityRetriever:
         }
 
     def _build_alias_table(self) -> None:
-        """alias-string (lowercased) -> (resolves_to, entity_type, source_alias)."""
+        """alias-string (lowercased) -> (resolves_to, entity_type, source_alias).
+
+        Sources, in precedence order (first writer wins per alias key):
+          1. ontology semantic_aliases — hand-curated per EntitySpec.
+          2. state/aliases.json — centralized BCPD project / code /
+             concept aliases. Loaded if the file exists; absent → silently
+             skipped (no hard dependency).
+        """
         self._alias_table: Dict[str, Tuple[str, str, str]] = {}
         for et, spec in self.ontology_registry.entities.items():
             for a in spec.semantic_aliases:
                 key = a.alias.lower().strip()
                 if key and key not in self._alias_table:
                     self._alias_table[key] = (a.resolves_to, et, a.alias)
+        # Layered: aliases.json (centralized table) augments the ontology
+        # without overwriting it. Missing or malformed file → skip silently;
+        # this is an additive recall improvement, not a hard requirement.
+        try:
+            extra = self._load_aliases_file(self.aliases_path)
+        except (OSError, json.JSONDecodeError, ValueError):
+            extra = []
+        for alias, resolves_to, kind, source_alias in extra:
+            key = alias.lower().strip()
+            if key and key not in self._alias_table:
+                self._alias_table[key] = (resolves_to, kind, source_alias)
+                self._aliases_loaded_count += 1
+
+    @staticmethod
+    def _load_aliases_file(path: Path) -> List[Tuple[str, str, str, str]]:
+        """Parse state/aliases.json into (alias, resolves_to, kind, source_alias) tuples."""
+        p = Path(path)
+        if not p.exists() or not p.is_file():
+            return []
+        data = json.loads(p.read_text())
+        out: List[Tuple[str, str, str, str]] = []
+        groups = data.get("groups") if isinstance(data, dict) else None
+        if not isinstance(groups, list):
+            return []
+        for g in groups:
+            if not isinstance(g, dict):
+                continue
+            canonical = (g.get("canonical") or "").strip()
+            kind = (g.get("kind") or "concept").strip()
+            aliases = g.get("aliases") or []
+            if not canonical or not isinstance(aliases, list):
+                continue
+            for a in aliases:
+                if not isinstance(a, str):
+                    continue
+                a_clean = a.strip()
+                if not a_clean:
+                    continue
+                out.append((a_clean, canonical, kind, a_clean))
+        return out
 
     # ------------------------------------------------------------------
     # query-time
