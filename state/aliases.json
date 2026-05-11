@@ -1,0 +1,254 @@
+{
+  "schema_version": "v0.1",
+  "purpose": "Single source of truth for BCPD project/code/concept aliases used by retrieval. Seeded from routing rules (financials/qa/llm_eval/route_retrieval.py) and the v1 decoder report (data/reports/vf_lot_code_decoder_v1_report.md). Loaded by bedrock/retrieval/services/entity_retriever.py when present.",
+  "notes": "Aliases are matched case-insensitively as substrings against the query (and, for routed triggers, against full trigger phrases). 'kind' groups entries so the evaluator can assert per-rule expectations. canonical_entity_id (when set) points at the matching row in output/bedrock/entity_index.parquet.",
+  "groups": [
+    {
+      "kind": "project",
+      "canonical": "Parkway Fields",
+      "canonical_entity_id": "project:Parkway Fields",
+      "aliases": [
+        "Parkway",
+        "Parkway Field",
+        "PWFS",
+        "PWFS2",
+        "PWFT1",
+        "PWFT 1",
+        "AultF",
+        "Ault Farms",
+        "Ault F",
+        "Ault-F",
+        "Ault_F",
+        "ault farms",
+        "parkway fields e-1"
+      ]
+    },
+    {
+      "kind": "project",
+      "canonical": "Harmony",
+      "canonical_entity_id": "project:Harmony",
+      "aliases": [
+        "Harmony",
+        "HarmCo",
+        "Harm Co",
+        "Harm-Co",
+        "Harmony Commercial",
+        "Harmony Comm",
+        "harmony residential",
+        "harmony_mf2_residential",
+        "HarmCo_residential",
+        "HarmCo_commercial",
+        "harmony_commercial_pad_nonlot",
+        "commercial parcel",
+        "commercial parcels",
+        "commercial pad",
+        "commercial pads",
+        "harmco x-x",
+        "harmco xx",
+        "X-X",
+        "x x parcel",
+        "HarmTo"
+      ]
+    },
+    {
+      "kind": "project",
+      "canonical": "Scattered Lots",
+      "canonical_entity_id": "project:Scattered Lots",
+      "aliases": [
+        "SctLot",
+        "Sct Lot",
+        "Scattered Lots",
+        "scattered lots",
+        "scattered",
+        "infill",
+        "infill custom",
+        "custom build",
+        "custom lots"
+      ]
+    },
+    {
+      "kind": "project",
+      "canonical": "Scarlet Ridge",
+      "canonical_entity_id": "project:Scarlet Ridge",
+      "aliases": [
+        "ScaRdg",
+        "Sca Rdg",
+        "Scarlet Ridge",
+        "scarlet ridge",
+        "scarletridge",
+        "scarletridge_lot_range_phase"
+      ]
+    },
+    {
+      "kind": "project",
+      "canonical": "Lomond Heights",
+      "canonical_entity_id": "project:Lomond Heights",
+      "aliases": [
+        "Lomond Heights",
+        "Lomond",
+        "LomHS1",
+        "LomHT1",
+        "LomHS",
+        "LomHT",
+        "lomondheights_sfr_phase_2a",
+        "lomondheights_th_phase_2a"
+      ]
+    },
+    {
+      "kind": "entity",
+      "canonical": "BCPD",
+      "canonical_entity_id": null,
+      "aliases": [
+        "BCPD",
+        "bcpd",
+        "Building Construction Partners",
+        "BCPBL",
+        "ASD",
+        "BCPI",
+        "horizontal developer",
+        "horizontal developers"
+      ],
+      "notes": "BCPD is the entity scope (Building Construction Partners + BCPBL, ASD, BCPI). Out of scope: Hillcrest, Flagship Belmont, Lennar."
+    },
+    {
+      "kind": "source_system",
+      "canonical": "Vertical Financials",
+      "canonical_entity_id": null,
+      "aliases": [
+        "Vertical Financials",
+        "VF",
+        "vf",
+        "VF cost basis",
+        "VF GL"
+      ]
+    },
+    {
+      "kind": "source_system",
+      "canonical": "DataRails",
+      "canonical_entity_id": null,
+      "aliases": [
+        "DataRails",
+        "DR",
+        "datarails 38-col",
+        "38-col",
+        "38 col",
+        "DataRails 38-col"
+      ]
+    },
+    {
+      "kind": "source_system",
+      "canonical": "QuickBooks",
+      "canonical_entity_id": null,
+      "aliases": [
+        "QuickBooks",
+        "QB",
+        "quickbooks register",
+        "qb register"
+      ]
+    },
+    {
+      "kind": "concept",
+      "canonical": "range/shell rows",
+      "canonical_entity_id": null,
+      "aliases": [
+        "range row",
+        "range rows",
+        "range-row",
+        "range/shell",
+        "range-shell",
+        "shell row",
+        "shell rows",
+        "shell allocation",
+        "shared shell",
+        "infrastructure allocation",
+        "$45.75M",
+        "45.75M",
+        "range exposure"
+      ],
+      "notes": "Range/shell rows = phase-grain or larger; not safe at lot grain. Total BCPD range exposure across 8 VF codes = $45.75M / 4,020 rows."
+    },
+    {
+      "kind": "concept",
+      "canonical": "missing cost is not zero",
+      "canonical_entity_id": null,
+      "aliases": [
+        "missing cost",
+        "missing is not zero",
+        "no matched gl",
+        "no matched cost",
+        "no gl",
+        "unknown cost",
+        "no coverage"
+      ]
+    },
+    {
+      "kind": "concept",
+      "canonical": "AultF B-suffix correction",
+      "canonical_entity_id": null,
+      "aliases": [
+        "AultF B-suffix",
+        "AultF B suffix",
+        "Ault F B-suffix",
+        "Ault-F B-suffix",
+        "B-suffix correction",
+        "B suffix correction",
+        "0127B",
+        "0211B",
+        "B1",
+        "B2"
+      ],
+      "notes": "AultF B-suffix (101-211 range) → B1; PWFS2 B-suffix (273-323 range) → B2. v0 mis-routed 1,499 rows / $4.0M."
+    },
+    {
+      "kind": "concept",
+      "canonical": "AultF SR-suffix",
+      "canonical_entity_id": null,
+      "aliases": [
+        "AultF SR-suffix",
+        "AultF SR suffix",
+        "Ault F SR-suffix",
+        "Ault-F SR-suffix",
+        "SR-suffix correction",
+        "SR suffix correction",
+        "0139SR",
+        "0140SR"
+      ],
+      "notes": "401 rows of inferred-unknown AultF SR-suffix lots in v2.1."
+    },
+    {
+      "kind": "concept",
+      "canonical": "Harmony 3-tuple join",
+      "canonical_entity_id": null,
+      "aliases": [
+        "3-tuple",
+        "three-tuple",
+        "three tuple",
+        "project + phase + lot",
+        "project, phase, lot",
+        "project + phase",
+        "phase + lot",
+        "harmony 3-tuple",
+        "harmony three tuple"
+      ],
+      "notes": "Harmony lot numbers repeat across MF1 vs B1; cost rollups must use the (project, phase, lot) 3-tuple."
+    },
+    {
+      "kind": "concept",
+      "canonical": "org-wide unavailable",
+      "canonical_entity_id": null,
+      "aliases": [
+        "org-wide",
+        "org wide",
+        "orgwide",
+        "company-wide",
+        "company wide",
+        "across entities",
+        "all entities",
+        "consolidated",
+        "Hillcrest",
+        "Flagship Belmont"
+      ],
+      "notes": "Hillcrest + Flagship Belmont GL coverage ends 2017-02; v2 rollups are BCPD-scoped only."
+    }
+  ]
+}

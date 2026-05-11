@@ -1,0 +1,231 @@
+{
+  "schema_version": "v0.1",
+  "purpose": "Retrieval-only golden eval — measures whether the right source files / route rules / entity ids appear in the top-k for a given query, independent of any LLM answer. Run via `python financials/qa/rag_eval/run_retrieval_goldens.py`.",
+  "scoring_notes": "Each golden has 0..N expected_source_files, 0..N expected_route_rules, 0..N expected_entity_ids. A golden passes when every expected item from each non-empty list appears in the corresponding retrieval result. expected_source_files are matched against the union of source_files across the top-k orchestrator hits. expected_route_rules are matched against the rule_names returned by build_routed_evidence. expected_entity_ids are matched against EntityRetriever hits in the top-k (only run when entity index is available; missing index ⇒ test is reported as 'skipped:no-index').",
+  "goldens": [
+    {
+      "id": "g01_parkway_brief",
+      "query": "Give me a project brief for Parkway Fields",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/projects/project_parkway_fields.md"
+      ],
+      "expected_route_rules": [
+        "project_parkway_fields"
+      ],
+      "expected_entity_ids": [
+        "project:Parkway Fields"
+      ],
+      "notes": "Project brief tool: must surface the parkway_fields project chunk and the entity."
+    },
+    {
+      "id": "g02_aultf_b_suffix",
+      "query": "What changed for AultF B-suffix in v2.1?",
+      "expected_source_files": [
+        "data/reports/v2_0_to_v2_1_change_log.md",
+        "output/agent_chunks_v2_bcpd/projects/project_parkway_fields.md"
+      ],
+      "expected_route_rules": [
+        "aultf_correction"
+      ],
+      "expected_entity_ids": [],
+      "notes": "The 1,499-row / $4.0M B-suffix correction story. Routed rule fires before version_change."
+    },
+    {
+      "id": "g03_aultf_sr_suffix",
+      "query": "What is the status of AultF SR-suffix 0139SR and 0140SR?",
+      "expected_source_files": [
+        "data/reports/v2_0_to_v2_1_change_log.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md"
+      ],
+      "expected_route_rules": [
+        "aultf_correction"
+      ],
+      "expected_entity_ids": [],
+      "notes": "401 inferred-unknown rows for AultF SR-suffix lots."
+    },
+    {
+      "id": "g04_harmco_commercial",
+      "query": "What is HarmCo and how do commercial parcels differ from lots?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_commercial_not_residential.md",
+        "output/agent_chunks_v2_bcpd/cost_sources/cost_source_commercial_parcels.md"
+      ],
+      "expected_route_rules": [
+        "harmco_commercial"
+      ],
+      "expected_entity_ids": [],
+      "notes": "HarmCo X-X commercial parcels are non-residential; not in LotState. 205 rows / $2.63M."
+    },
+    {
+      "id": "g05_sctlot_not_scarlet_ridge",
+      "query": "Is SctLot the same as Scarlet Ridge?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_sctlot_scattered_lots.md",
+        "output/agent_chunks_v2_bcpd/projects/project_scattered_lots.md"
+      ],
+      "expected_route_rules": [
+        "sctlot_scattered"
+      ],
+      "expected_entity_ids": [
+        "project:Scattered Lots"
+      ],
+      "notes": "v2.1 split: SctLot canonical_project = 'Scattered Lots' (not Scarlet Ridge). Zero lot-number overlap with ScaRdg."
+    },
+    {
+      "id": "g06_harmony_3tuple",
+      "query": "Why does Harmony cost rollup need the three-tuple join?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md",
+        "output/agent_chunks_v2_bcpd/projects/project_harmony.md"
+      ],
+      "expected_route_rules": [
+        "harmony_3tuple"
+      ],
+      "expected_entity_ids": [
+        "project:Harmony"
+      ],
+      "notes": "Harmony lot numbers share across MF1 vs B1 phases — must join (project, phase, lot)."
+    },
+    {
+      "id": "g07_range_shell_4575m",
+      "query": "Can I trust per-lot cost on range/shell rows?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+        "output/agent_chunks_v2_bcpd/cost_sources/cost_source_range_shell_rows.md"
+      ],
+      "expected_route_rules": [
+        "cost_grain"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Range/shell rows = phase-grain. Total BCPD exposure = $45.75M / 4,020 rows / 8 VF codes."
+    },
+    {
+      "id": "g08_missing_cost_not_zero",
+      "query": "What does it mean when a project has no matched GL cost?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/cost_sources/cost_source_missing_cost_is_not_zero.md",
+        "output/agent_chunks_v2_bcpd/coverage/coverage_no_gl_projects.md"
+      ],
+      "expected_route_rules": [
+        "coverage_gaps_next_version"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Missing GL match = unknown, never $0. Core data-integrity rule."
+    },
+    {
+      "id": "g09_orgwide_unavailable",
+      "query": "Can you give me an org-wide cost rollup across all entities?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_orgwide_unavailable.md",
+        "output/agent_context_v2_1_bcpd.md"
+      ],
+      "expected_route_rules": [
+        "org_wide"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Hillcrest + Flagship Belmont GL coverage ends 2017-02. v2 is BCPD-scoped."
+    },
+    {
+      "id": "g10_vf_cost_basis",
+      "query": "Why does the system use VF cost basis instead of the GL trial balance?",
+      "expected_source_files": [
+        "data/reports/vf_lot_code_decoder_v1_report.md"
+      ],
+      "expected_route_rules": [],
+      "expected_entity_ids": [],
+      "notes": "Vertical Financials is the cost source. The decoder report describes route inference per VF code."
+    },
+    {
+      "id": "g11_margin_readiness",
+      "query": "Is BCPD ready for a lot-level margin report this week?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "expected_route_rules": [
+        "reporting_readiness"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Margin-readiness tool driver: range/shell + inferred decoder + coverage caveats."
+    },
+    {
+      "id": "g12_false_precision",
+      "query": "Where might our reports give false precision on BCPD costs?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_range_rows_not_lot_level.md",
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_inferred_decoder_rules.md",
+        "output/agent_chunks_v2_bcpd/guardrails/guardrail_harmony_3tuple_join.md"
+      ],
+      "expected_route_rules": [
+        "false_precision"
+      ],
+      "expected_entity_ids": [],
+      "notes": "False-precision tool driver."
+    },
+    {
+      "id": "g13_change_impact",
+      "query": "What changed from v2.0 to v2.1 and what is the dollar impact?",
+      "expected_source_files": [
+        "data/reports/v2_0_to_v2_1_change_log.md",
+        "output/state_quality_report_v2_1_bcpd.md"
+      ],
+      "expected_route_rules": [
+        "version_change"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Change-impact tool driver."
+    },
+    {
+      "id": "g14_meeting_prep",
+      "query": "Prepare me for a 30-minute review meeting with the source owners.",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/coverage/coverage_source_owner_validation_queue.md",
+        "data/reports/v2_0_to_v2_1_change_log.md"
+      ],
+      "expected_route_rules": [
+        "meeting_prep"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Meeting-prep tool driver."
+    },
+    {
+      "id": "g15_owner_update",
+      "query": "Draft a concise owner-level update on BCPD operating state.",
+      "expected_source_files": [
+        "output/agent_context_v2_1_bcpd.md",
+        "data/reports/v2_0_to_v2_1_change_log.md"
+      ],
+      "expected_route_rules": [
+        "executive_update"
+      ],
+      "expected_entity_ids": [],
+      "notes": "Owner-update tool driver."
+    },
+    {
+      "id": "g16_parkway_pwft1_distinct_from_pwfs2",
+      "query": "What is the difference between PWFT1 and PWFS2 in Parkway Fields?",
+      "expected_source_files": [
+        "output/agent_chunks_v2_bcpd/projects/project_parkway_fields.md",
+        "data/reports/vf_lot_code_decoder_v1_report.md"
+      ],
+      "expected_route_rules": [
+        "project_parkway_fields"
+      ],
+      "expected_entity_ids": [
+        "project:Parkway Fields"
+      ],
+      "notes": "PWFT1 = townhomes phase 1 (C1/C2); PWFS2 = SFR phase 2 range route."
+    },
+    {
+      "id": "g17_lomond_heights_2a",
+      "query": "How do LomHS1 and LomHT1 map to Lomond Heights phases?",
+      "expected_source_files": [],
+      "expected_route_rules": [],
+      "expected_entity_ids": [
+        "project:Lomond Heights"
+      ],
+      "notes": "Both LomHS1 (SFR 101-171) and LomHT1 (TH 172-215) route to phase 2A. Pure alias-recall test — no routing rule exists today, so this exercises the entity layer."
+    }
+  ]
+}

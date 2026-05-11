@@ -85,10 +85,34 @@ class BcpdContext:
 
             retrievers = [ChunkSource(), RoutedSource()]
             if self.add_entity_source:
-                from bedrock.retrieval.retrievers.entity_source import EntitySource
-                from bedrock.retrieval.services.entity_retriever import default_retriever
-
-                retrievers.append(EntitySource(default_retriever()))
+                # EntitySource depends on bedrock/embeddings/ + the entity
+                # parquet at output/bedrock/entity_index.parquet. The BCPD
+                # Skill v0.1 package ships neither (audit:
+                # docs/embedding_retrieval_audit_bcpd_v0_1.md §9, weakness
+                # 7.10). Raising a clear error here is preferable to the
+                # silent ModuleNotFoundError the import would otherwise
+                # produce inside the package.
+                try:
+                    from bedrock.retrieval.retrievers.entity_source import EntitySource
+                    from bedrock.retrieval.services.entity_retriever import default_retriever
+                except ImportError as e:
+                    raise RuntimeError(
+                        "EntitySource is not bundled in BCPD Skill v0.1; "
+                        "use ChunkSource + RoutedSource (the default), or "
+                        "rebuild the package with the entity retrieval stack "
+                        "(bedrock/embeddings/, bedrock/retrieval/services/, "
+                        "and output/bedrock/entity_index.parquet)."
+                    ) from e
+                try:
+                    retrievers.append(EntitySource(default_retriever()))
+                except FileNotFoundError as e:
+                    raise RuntimeError(
+                        "EntitySource is not bundled in BCPD Skill v0.1; "
+                        "use ChunkSource + RoutedSource (the default), or "
+                        "rebuild the package with the entity retrieval stack "
+                        "(bedrock/embeddings/, bedrock/retrieval/services/, "
+                        "and output/bedrock/entity_index.parquet)."
+                    ) from e
             self._orchestrator = HybridOrchestrator(
                 retrievers=retrievers,
                 fuser=RRFFuser(),
