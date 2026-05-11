@@ -24,6 +24,12 @@ jobs:
           if [ -f requirements-bedrock.txt ]; then pip install -r requirements-bedrock.txt; fi
           pip install pytest
 
+      - name: Build entity vector index (required by tests/test_context_packing.py)
+        # Deterministic, offline, ~3 seconds. Uses the install-free hashing
+        # provider; no API keys required. Output is gitignored
+        # (output/bedrock/entity_index.parquet) so it must be built per CI run.
+        run: python -m bedrock.embeddings.build --quiet
+
       - name: Run full test suite
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
