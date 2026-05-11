@@ -1,0 +1,5 @@
+# Optional install — only needed for the MCP stdio server at bedrock/mcp/bcpd_server.py.
+# pip install -r requirements-mcp.txt
+#
+# Pulls in pydantic transitively; pins overlap cleanly with requirements-bedrock.txt.
+mcp>=1.2,<2
