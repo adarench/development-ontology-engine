@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""In-process smoke test for the BCPD MCP server.
+
+Builds the same ToolRegistry that bedrock.mcp.bcpd_server.build_server()
+builds (via the registry_for_testing helper) and calls dispatch() on three
+representative tools. Asserts each output contains the expected BCPD facts.
+Verifies the seven protected v2.1 files are byte-identical before/after.
+
+No MCP transport, no subprocess, no Claude Desktop required. Use this as
+the developer-side gate before configuring an MCP client.
+
+Exit code 0 = pass; non-zero = fail.
+
+CLI:
+    python scripts/smoke_test_bcpd_mcp.py
+
+Python requirement: 3.10+ (the mcp SDK requirement).
+"""
+from __future__ import annotations
+
+import hashlib
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+# Make the repo importable when this script runs from anywhere.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+# Files the runtime must NEVER mutate.
+PROTECTED_PATHS: Tuple[str, ...] = (
+    "output/operating_state_v2_1_bcpd.json",
+    "output/agent_context_v2_1_bcpd.md",
+    "output/state_quality_report_v2_1_bcpd.md",
+    "data/reports/v2_0_to_v2_1_change_log.md",
+    "data/reports/coverage_improvement_opportunities.md",
+    "data/reports/crosswalk_quality_audit_v1.md",
+    "data/reports/vf_lot_code_decoder_v1_report.md",
+)
+
+
+@dataclass
+class WorkflowCheck:
+    tool_name: str
+    args: Dict[str, str]
+    must_contain: List[str]
+    must_not_contain: List[str] = field(default_factory=list)
+
+
+CHECKS: List[WorkflowCheck] = [
+    WorkflowCheck(
+        tool_name="generate_project_brief",
+        args={"project": "Parkway Fields"},
+        must_contain=[
+            "Project Brief — Parkway Fields",
+            "AultF",
+            "B1",
+            "$4,006,662",
+            "inferred",
+        ],
+    ),
+    WorkflowCheck(
+        tool_name="review_margin_report_readiness",
+        args={"scope": "bcpd"},
+        must_contain=[
+            "Lot-Level Margin Report — Readiness Review",
+            "Missing cost is",
+            "unknown",
+            "never $0",
+            "range",
+        ],
+        must_not_contain=["treat missing cost as $0"],
+    ),
+    WorkflowCheck(
+        tool_name="find_false_precision_risks",
+        args={"scope": "bcpd"},
+        must_contain=[
+            "False Precision Risks",
+            "$45,752,047",
+            "3-tuple",
+            "SctLot",
+            "HarmCo",
+            "commercial",
+        ],
+    ),
+]
+
+
+def _sha256(p: Path) -> str:
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def _snapshot_protected() -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for rel in PROTECTED_PATHS:
+        p = REPO_ROOT / rel
+        if p.exists():
+            out[rel] = _sha256(p)
+    return out
+
+
+def main() -> int:
+    # Lazy import so a missing mcp install produces a clean error message.
+    try:
+        from bedrock.mcp.bcpd_server import registry_for_testing
+    except ImportError as e:
+        print(f"[smoke] FAIL: cannot import bedrock.mcp.bcpd_server: {e}", file=sys.stderr)
+        print(
+            "[smoke] HINT: pip install -r requirements-mcp.txt (mcp requires Python 3.10+)",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Snapshot BEFORE any tool runs.
+    pre = _snapshot_protected()
+    if not pre:
+        print("[smoke] FAIL: no protected v2.1 files found to snapshot", file=sys.stderr)
+        return 2
+
+    registry = registry_for_testing()
+
+    overall_pass = True
+    for check in CHECKS:
+        print(f"[smoke] dispatch: {check.tool_name}({check.args})")
+        try:
+            output = registry.dispatch(check.tool_name, dict(check.args))
+        except Exception as e:
+            print(f"  [FAIL] dispatch raised {type(e).__name__}: {e}", file=sys.stderr)
+            overall_pass = False
+            continue
+
+        missing = [m for m in check.must_contain if m not in output]
+        forbidden = [f for f in check.must_not_contain if f in output]
+        passed = not missing and not forbidden
+        overall_pass = overall_pass and passed
+        if passed:
+            print(f"  [PASS] {len(output)} chars")
+        else:
+            print(
+                f"  [FAIL] missing={missing}; forbidden_present={forbidden}",
+                file=sys.stderr,
+            )
+
+    # Snapshot AFTER. Any drift = bug.
+    post = _snapshot_protected()
+    mutated = [rel for rel, h in pre.items() if post.get(rel) != h]
+    if mutated:
+        overall_pass = False
+        print(
+            f"[smoke] FAIL: protected v2.1 files mutated during runs: {mutated}",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"[smoke] read-only contract verified ({len(pre)} protected files byte-identical)"
+        )
+
+    print()
+    print(f"[smoke] OVERALL: {'PASS' if overall_pass else 'FAIL'}")
+    return 0 if overall_pass else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
