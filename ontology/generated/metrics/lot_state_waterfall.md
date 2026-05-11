@@ -1,0 +1,42 @@
+<!-- Generated from ontology/metrics/lot_state_waterfall.yaml by bedrock.ontology.runtime.render_markdown. Do not edit by hand. -->
+
+# Metric: lot_state_waterfall
+
+- **Unit**: `enum`
+- **Confidence**: `validated`
+- **Source definition**: `pipelines/config.py:LOT_STATE_WATERFALL`
+- **Aliases**: `state waterfall`, `lifecycle waterfall`, `lot stage rules`
+
+## Description
+
+Deterministic first-match-wins waterfall that derives lot_state from 8 lifecycle dates. Evaluated top-down. Vertical events outrank horizontal events because the more advanced activity governs (e.g., a lot with vert_start_date set is VERTICAL_IN_PROGRESS even if horiz_record_date is null).
+
+## Formula
+
+```
+if vert_close_date is not null     -> CLOSED
+if vert_sale_date is not null      -> SOLD_NOT_CLOSED
+if vert_co_date is not null        -> VERTICAL_COMPLETE
+if vert_start_date is not null     -> VERTICAL_IN_PROGRESS
+if vert_purchase_date is not null  -> VERTICAL_PURCHASED
+if horiz_record_date is not null   -> FINISHED_LOT
+if horiz_start_date is not null    -> HORIZONTAL_IN_PROGRESS
+if horiz_purchase_date is not null -> LAND_OWNED
+else                               -> PROSPECT
+```
+
+## Inputs
+
+- `vert_close_date`
+- `vert_sale_date`
+- `vert_co_date`
+- `vert_start_date`
+- `vert_purchase_date`
+- `horiz_record_date`
+- `horiz_start_date`
+- `horiz_purchase_date`
+
+## Notes
+
+- **sentinel_date**: 1899-12-30 must be filtered to null at ingest, otherwise SOLD_NOT_CLOSED/CLOSED misclassification follows.
+- **state_driving_horizontal**: Only horiz_purchase_date, horiz_start_date, horiz_record_date drive the waterfall.

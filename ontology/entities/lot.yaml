@@ -1,0 +1,342 @@
+# Generated from ontology/lot_state_v1.md (305 lines, authored prose).
+# After Phase 1, this YAML is the source of truth and ontology/generated/lot.md is regenerated.
+
+entity_type: lot
+canonical_name: LotState
+business_description: >
+  A point-in-time snapshot of a single residential lot — where it sits in its lifecycle
+  and what has actually been spent. The atomic unit of truth that PhaseState and portfolio
+  views aggregate from. LotState captures *what has happened* to a lot. Budget and variance
+  belong in PhaseState.
+vertical: construction
+schema_version: v1
+
+retrieval_tags:
+  - lot
+  - lifecycle
+  - actuals
+  - waterfall
+  - bcpd
+  - operational_state
+
+source_lineage:
+  - "Collateral Dec2025 01 Claude.xlsx - Lot Data.csv"
+  - "Collateral Dec2025 01 Claude.xlsx - 2025Status.csv"
+  - "ontology/lot_state_v1.md"
+  - "pipelines/build_lot_state.py"
+  - "financials/build_operating_state_v2_1_bcpd.py"
+
+example_queries:
+  - "What state is lot 101 in Harmony B1?"
+  - "How many days has Parkway Field A1 lot 12 been in VERTICAL_IN_PROGRESS?"
+  - "What's the cost-to-date for finished lots in Lomond Heights?"
+
+field_definitions:
+  # Identity
+  - name: canonical_lot_id
+    type: string
+    description: "Composite key: {project_name}::{phase_name}::{lot_number}. Cross-validated against the SHComb column in Lot Data."
+    source_columns: [SHComb]
+    aliases: [lot_id, primary_key]
+  - name: project_name
+    type: string
+    description: Name of the development project.
+    source_columns: [Project]
+  - name: phase_name
+    type: string
+    description: Name of the phase within the project.
+    source_columns: [Phase]
+  - name: lot_number
+    type: string
+    description: Lot identifier within the phase. Column name differs between Lot Data (LotNo.) and 2025Status (Lot).
+    source_columns: ["LotNo.", "Lot"]
+  # Relationships
+  - name: project_id
+    type: string
+    description: Reference to the parent project entity.
+  - name: phase_id
+    type: string
+    description: Reference to the parent phase entity.
+  - name: customer_name
+    type: string
+    nullable: true
+    description: Buyer name, populated post-sale.
+  - name: buyer_id
+    type: string
+    nullable: true
+    description: Buyer identifier, populated post-sale.
+  # Horizontal lifecycle dates
+  - name: horiz_purchase_date
+    type: date
+    nullable: true
+    description: Date the raw land was purchased.
+    source_columns: [HorzPurchase]
+  - name: horiz_mda_date
+    type: date
+    nullable: true
+    description: Master development agreement date.
+    source_columns: [HorzMDA]
+  - name: horiz_prelim_plat_date
+    type: date
+    nullable: true
+    description: Date the preliminary plat was filed/submitted.
+    source_columns: [HorzPrelimPlat]
+  - name: horiz_final_plat_date
+    type: date
+    nullable: true
+    description: Date the final plat was approved.
+    source_columns: [HorzFinalPlat]
+  - name: horiz_start_date
+    type: date
+    nullable: true
+    description: Date first physical activity began on horizontal work.
+    source_columns: [HorzStart]
+  - name: horiz_end_date
+    type: date
+    nullable: true
+    description: Date horizontal construction was physically completed.
+    source_columns: [HorzEnd]
+  - name: horiz_fin_inv_date
+    type: date
+    nullable: true
+    description: Date the lot entered finished inventory status.
+    source_columns: [HorzFinInv]
+  - name: horiz_record_date
+    type: date
+    nullable: true
+    description: Date the plat was officially recorded. The legal milestone that triggers FINISHED_LOT state.
+    source_columns: [HorzRecord]
+  - name: horiz_w_enter_date
+    type: date
+    nullable: true
+    description: Date the lot entered the warranty period.
+    source_columns: [HorzWEnter]
+  - name: horiz_w_exit_date
+    type: date
+    nullable: true
+    description: Date the lot exited the warranty period.
+    source_columns: [HorzWExit]
+  - name: horiz_contract_date
+    type: date
+    nullable: true
+    description: Date the horizontal sale/disposition contract was executed.
+    source_columns: [HorzContract]
+  - name: horiz_sale_date
+    type: date
+    nullable: true
+    description: Date the horizontal lot sale closed.
+    source_columns: [HorzSale]
+  # Vertical lifecycle dates
+  - name: vert_purchase_date
+    type: date
+    nullable: true
+    description: Date the builder/vertical entity purchased the finished lot.
+    source_columns: [VertPurchase]
+  - name: vert_start_date
+    type: date
+    nullable: true
+    description: Date first physical construction activity began on the vertical build.
+    source_columns: [VertStart]
+  - name: vert_co_date
+    type: date
+    nullable: true
+    description: Date certificate of occupancy was issued.
+    source_columns: [VertCO]
+    aliases: [c_of_o, certificate_of_occupancy]
+  - name: vert_sale_date
+    type: date
+    nullable: true
+    description: Date the lot/home was placed under sale contract.
+    source_columns: [VertSale]
+  - name: vert_close_date
+    type: date
+    nullable: true
+    description: Date the sale closed and title transferred.
+    source_columns: [VertClose]
+  # Derived state
+  - name: lot_state
+    type: enum
+    description: Lifecycle position computed deterministically from the date waterfall. Never manually set.
+    enum_values:
+      - PROSPECT
+      - LAND_OWNED
+      - HORIZONTAL_IN_PROGRESS
+      - FINISHED_LOT
+      - VERTICAL_PURCHASED
+      - VERTICAL_IN_PROGRESS
+      - VERTICAL_COMPLETE
+      - SOLD_NOT_CLOSED
+      - CLOSED
+    derived: true
+    derivation_note: "First-match-wins waterfall. See metric: state_waterfall."
+    aliases: [current_stage, stage]
+  - name: lot_type
+    type: enum
+    nullable: true
+    description: Sales/build classification. Independent dimension from lot_state.
+    enum_values: [SPEC, PRESOLD, MODEL]
+  - name: lot_state_group
+    type: enum
+    description: Coarser grouping for reporting and filtering.
+    enum_values: [PRE_DEVELOPMENT, HORIZONTAL, VERTICAL, DISPOSITION]
+    derived: true
+  - name: collateral_bucket
+    type: enum
+    description: Lender collateral category for borrowing base reporting. Derived from lot_state and lot_type.
+    enum_values:
+      - "Raw Land"
+      - "Land Under Development"
+      - "Finished Lots"
+      - "Vertical WIP"
+      - "Completed Inventory"
+      - "Sold Inventory"
+      - "N/A"
+    derived: true
+  - name: days_in_state
+    type: integer
+    description: Days the lot has been in its current lot_state. Computed as as_of_date minus the date that triggered the current state.
+    derived: true
+  - name: days_since_purchase
+    type: integer
+    nullable: true
+    description: Days since horiz_purchase_date (or vert_purchase_date if no horizontal purchase). Null if PROSPECT.
+    derived: true
+  - name: pct_complete
+    type: decimal
+    nullable: true
+    description: Rough lot-completion fraction (0.0 to 1.0). v1 is state-based per LOT_STATE_TO_PCT_COMPLETE.
+    derived: true
+    aliases: [completion_pct]
+  # Financials
+  - name: cost_to_date
+    type: decimal
+    description: "Total actual cost to date. Sum of: Permits and Fees + Direct Construction - Lot + Shared Cost Alloc. (horizontal-only by design)."
+    source_columns: ["Permits and Fees", "Direct Construction - Lot", "Shared Cost Alloc."]
+    aliases: [actual_cost, lot_cost, vf_actual_cost_3tuple_usd]
+  - name: remaining_cost
+    type: decimal
+    nullable: true
+    description: Estimated remaining spend to reach completion. Source TBD.
+  # Capital
+  - name: advance_rate
+    type: decimal
+    nullable: true
+    description: Lender advance rate for this lot's collateral bucket (e.g., 0.60 = 60%).
+    derived: true
+  - name: capital_exposure
+    type: decimal
+    nullable: true
+    description: Total capital at risk. Typically cost_to_date for unsold lots; reduces post-close.
+    derived: true
+  # Metadata
+  - name: as_of_date
+    type: date
+    description: The date this snapshot represents. All values are as of this date.
+  - name: source_systems
+    type: list
+    description: Which data sources contributed (e.g., ["lifecycle_sheet", "gl_export", "inventory_sheet"]).
+  - name: last_computed_at
+    type: datetime
+    description: Timestamp when this LotState was last computed/refreshed.
+
+semantic_aliases:
+  - alias: lot
+    resolves_to: LotState
+  - alias: lot snapshot
+    resolves_to: LotState
+  - alias: lot status
+    resolves_to: lot_state
+    note: "current_stage in v2.1 JSON maps to lot_state."
+  - alias: actual cost
+    resolves_to: cost_to_date
+  - alias: c_of_o
+    resolves_to: vert_co_date
+  - alias: completion percentage
+    resolves_to: pct_complete
+
+relationships:
+  - name: belongs_to_phase
+    target_entity: phase
+    cardinality: one
+    description: Each lot belongs to exactly one phase, identified by phase_id.
+    via_field: phase_id
+  - name: belongs_to_project
+    target_entity: project
+    cardinality: one
+    description: Each lot belongs to exactly one project, identified by project_id.
+    via_field: project_id
+
+approved_join_paths:
+  - name: harmony_3tuple
+    target_entity: phase
+    join_keys: [project_name, phase_name, lot_number]
+    cardinality: one
+    note: >
+      Required join shape for Harmony cost queries. v2.1 enforces the 3-tuple to prevent
+      ~$6.75M double-count where lot 101 in Harmony MF1 vs B1 are different physical assets.
+  - name: lot_to_clickup
+    target_entity: phase
+    join_keys: [project_name, phase_name, lot_number]
+    cardinality: one
+    note: ClickUp lot-tagging is sparse (~21%). Only join when in_clickup_lottagged is true.
+
+confidence_rules:
+  - field: cost_to_date
+    confidence: inferred
+    reason: >
+      VF decoder v1 is heuristic-driven (canonical project/phase/lot extracted from
+      vertical financials line items). Marked validated_by_source_owner=False until
+      source-owner sign-off. Reference: output/agent_context_v2_1_bcpd.md Rule 1.
+  - field: lot_state
+    confidence: high
+    reason: >
+      Deterministic waterfall over 8 source-backed lifecycle dates. Filtered for the
+      1899-12-30 sentinel during ingestion.
+
+validation_rules:
+  - name: sentinel_date_filter
+    rule: "Any source date equal to 1899-12-30 must be treated as null at ingest."
+    severity: error
+  - name: state_driving_dates_only
+    rule: >
+      Only horiz_purchase_date, horiz_start_date, and horiz_record_date drive the
+      state waterfall on the horizontal side. The remaining 9 horizontal dates are
+      operational visibility only.
+    severity: info
+  - name: cost_to_date_components
+    rule: "cost_to_date = sum(Permits and Fees, Direct Construction - Lot, Shared Cost Alloc.). Excludes Direct Construction (mixes horizontal+vertical) and Vertical Costs."
+    severity: error
+
+semantic_warnings:
+  - name: cost_is_inferred
+    applies_to: cost_to_date
+    message: >
+      Per-lot actual cost is derived via the v1 VF decoder and is NOT source-owner-validated.
+      Cite as 'inferred' confidence. Do not promote to 'validated'.
+  - name: missing_is_not_zero
+    applies_to: cost_to_date
+    message: >
+      A null cost_to_date means data is missing, not that the lot has zero spend.
+      Surface 'unknown' rather than '$0' to the user.
+
+embedding_payload:
+  template: |
+    LotState — {canonical_name}
+    {business_description}
+    Aliases: {aliases}
+    Tags: {retrieval_tags}
+    Lifecycle states (waterfall): CLOSED → SOLD_NOT_CLOSED → VERTICAL_COMPLETE → VERTICAL_IN_PROGRESS → VERTICAL_PURCHASED → FINISHED_LOT → HORIZONTAL_IN_PROGRESS → LAND_OWNED → PROSPECT.
+    Cost-to-date is horizontal-only by design (Permits and Fees + Direct Construction - Lot + Shared Cost Alloc.).
+  fields_to_include:
+    - canonical_lot_id
+    - lot_state
+    - cost_to_date
+    - lot_type
+    - collateral_bucket
+  aliases_in_text: true
+  retrieval_tags_in_text: true
+
+historical_behavior: >
+  v1 (pipelines/build_lot_state.py) computes lot_state from a flat (project, phase, lot)
+  join. v2.0 carried this forward but caused ~$6.75M Harmony double-count. v2.1 enforces
+  the 3-tuple harmony_3tuple join above.

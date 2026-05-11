@@ -1,0 +1,10 @@
+name: phase_belongs_to_project
+source_entity: phase
+target_entity: project
+cardinality: many_to_many  # many phases per project
+join_keys:
+  - canonical_project
+description: >
+  Each phase belongs to exactly one project. Phase identity is scoped within a project
+  (phase 'A1' under Parkway Fields is distinct from phase 'A1' under Lomond Heights).
+confidence: validated

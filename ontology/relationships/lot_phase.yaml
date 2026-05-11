@@ -1,0 +1,19 @@
+name: lot_belongs_to_phase
+source_entity: lot
+target_entity: phase
+cardinality: many_to_many  # many lots per phase, lot identity scoped within phase
+join_keys:
+  - canonical_project
+  - canonical_phase
+description: >
+  Each lot belongs to exactly one phase. The 3-tuple (canonical_project, canonical_phase,
+  canonical_lot_number) is the join key required for Harmony cost queries — a flat
+  (project, lot) join collapses different physical assets together.
+confidence: validated
+semantic_warnings:
+  - name: harmony_3tuple_required
+    applies_to: lot_belongs_to_phase
+    message: >
+      For Harmony, always use the 3-tuple join. v2.0 used a flat (project, lot) join and
+      collapsed Harm3 ($5.35M for B1 lots 101–116) onto HarmTo ($1.40M for MF1 lots 101–116),
+      causing a ~$6.75M double-count. v2.1 enforces this everywhere via vf_actual_cost_3tuple_usd.

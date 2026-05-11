@@ -1,0 +1,5 @@
+# Bedrock retrieval runtime — additive deps, isolated from core requirements.txt
+# Phase 1 only ships pydantic + PyYAML. Later phases add voyageai, sentence-transformers, psycopg, pgvector.
+
+pydantic>=2.6,<3
+PyYAML>=6.0

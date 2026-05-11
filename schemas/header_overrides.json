@@ -1,0 +1,12 @@
+{
+  "_doc": "Per-file (and optional per-sheet) header-row overrides for register_xlsx. Each pattern: a glob matched against the file's basename, an optional sheet name for xlsx, and a 0-indexed header row. First matching pattern (with matching sheet name when present) wins. Only needed when the header is not on row 0.",
+  "patterns": [
+    { "glob": "*Collateral Report*.csv", "header": 8 },
+    { "glob": "*PriorCR*.csv",           "header": 8 },
+    { "glob": "*2025Status*.csv",        "header": 2 },
+
+    { "glob": "*Claude (1).xlsx", "sheet": "Collateral Report", "header": 8 },
+    { "glob": "*Claude (1).xlsx", "sheet": "PriorCR",           "header": 8 },
+    { "glob": "*Claude (1).xlsx", "sheet": "2025Status",        "header": 2 }
+  ]
+}

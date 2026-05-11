@@ -1,0 +1,149 @@
+# New entity in v1 ontology runtime — implicit in v2.1 JSON top-level (projects[]).
+# Sourced from output/operating_state_v2_1_bcpd.json structure and PROJECT_STATE.md.
+
+entity_type: project
+canonical_name: Project
+business_description: >
+  A development project — the top-level grouping that contains many phases and lots.
+  Identity is driven by the canonical_project name (e.g., Parkway Fields, Harmony, Scattered Lots).
+  v2.1 separated SctLot from Scarlet Ridge ($6.55M un-inflated) and isolated HarmCo X-X
+  commercial parcels from residential lots.
+vertical: construction
+schema_version: v1
+
+retrieval_tags:
+  - project
+  - portfolio
+  - bcpd
+  - operational_state
+
+source_lineage:
+  - "output/operating_state_v2_1_bcpd.json (top-level projects[])"
+  - "data/staged/canonical_project.csv"
+  - "financials/build_operating_state_v2_1_bcpd.py"
+  - "financials/build_crosswalks_v0.py"
+
+example_queries:
+  - "What projects are in BCPD scope?"
+  - "How many phases does Harmony have?"
+  - "What is the total actuals for Parkway Fields?"
+
+field_definitions:
+  - name: canonical_project
+    type: string
+    description: Canonical project name. Authority for project identity in v2.x.
+    aliases: [project_name, project_id]
+  - name: canonical_entity
+    type: enum
+    description: BCPD entity that owns this project. Filters out Hillcrest/Flagship/Lennar/EXT (out of scope).
+    enum_values: [BCPD, BCPBL, ASD, BCPI]
+  - name: phase_count
+    type: integer
+    description: Number of phases in this project.
+    derived: true
+  - name: lot_count
+    type: integer
+    description: Total lots across all phases.
+    derived: true
+  - name: lot_count_active_2025status
+    type: integer
+    description: Active lots present in the 2025Status sheet (excludes pure-inventory rows).
+    derived: true
+  - name: actuals
+    type: map
+    description: Project-level actual cost totals, broken down by source (vf_total, dr_total_dedup, etc.).
+    derived: true
+  - name: commercial_parcels_non_lot
+    type: list
+    description: HarmCo X-X commercial parcels (~$2.6M, 205 rows). Isolated from residential lots.
+    derived: true
+  - name: phases
+    type: list
+    description: Nested array of PhaseState records belonging to this project.
+    derived: true
+
+semantic_aliases:
+  - alias: project
+    resolves_to: Project
+  - alias: development project
+    resolves_to: Project
+  - alias: SctLot
+    resolves_to: Scattered Lots
+    note: SctLot is its own canonical project, NOT Scarlet Ridge. v2.1 fix.
+  - alias: HarmCo X-X
+    resolves_to: commercial_parcels_non_lot
+    note: Commercial parcels — not residential lots. Isolated in v2.1.
+
+relationships:
+  - name: contains_phases
+    target_entity: phase
+    cardinality: many
+    description: A project contains many phases.
+    via_field: canonical_project
+  - name: contains_lots
+    target_entity: lot
+    cardinality: many
+    description: A project transitively contains many lots via its phases.
+
+approved_join_paths:
+  - name: project_to_phases
+    target_entity: phase
+    join_keys: [canonical_project]
+    cardinality: many
+  - name: project_to_crosswalk
+    target_entity: project
+    join_keys: [source_value]
+    cardinality: one
+    note: data/staged/canonical_project.csv maps source-system project labels to canonical_project.
+
+confidence_rules:
+  - field: canonical_project
+    confidence: high
+    reason: Crosswalks are reviewed and committed under data/staged/.
+  - field: actuals
+    confidence: inferred
+    reason: Project-level actuals roll up from lot-level VF decoder output (inferred).
+
+validation_rules:
+  - name: bcpd_only_scope
+    rule: "canonical_entity must be one of BCPD, BCPBL, ASD, BCPI. Hillcrest/Flagship/Lennar/EXT are out of scope; refuse org-wide queries."
+    severity: error
+  - name: sctlot_not_scarlet
+    rule: "SctLot rows must canonicalize to 'Scattered Lots', never 'Scarlet Ridge'. v2.1 hard rule."
+    severity: error
+  - name: harmco_xx_isolated
+    rule: "HarmCo X-X parcels live in commercial_parcels_non_lot, not in any phases[].lots[] array."
+    severity: error
+
+semantic_warnings:
+  - name: org_wide_unavailable
+    applies_to: canonical_project
+    message: >
+      Org-wide rollups (Hillcrest, Flagship Belmont) are explicitly out of scope.
+      Those entities have GL data only through 2017-02. Refuse org-wide queries.
+  - name: sctlot_renamed
+    applies_to: canonical_project
+    message: >
+      In v2.0 SctLot was incorrectly bucketed into Scarlet Ridge, inflating Scarlet by $6.55M.
+      v2.1 isolates SctLot as 'Scattered Lots'. Always cite the v2.1 canonical name.
+
+embedding_payload:
+  template: |
+    Project — {canonical_name}
+    {business_description}
+    Aliases: {aliases}
+    Tags: {retrieval_tags}
+    BCPD scope only — entities BCPD/BCPBL/ASD/BCPI. Out of scope: Hillcrest, Flagship, Lennar, EXT.
+    v2.1 corrections: SctLot → Scattered Lots; HarmCo X-X commercial isolated; AultF B-suffix → B1.
+  fields_to_include:
+    - canonical_project
+    - canonical_entity
+    - phase_count
+    - lot_count
+  aliases_in_text: true
+  retrieval_tags_in_text: true
+
+historical_behavior: >
+  v1/v2.0 used a flat Scarlet Ridge bucket that absorbed SctLot rows. v2.1 separates them.
+  v1 had no formal Project entity — it lived implicitly in lot.project_name. v2.1 promoted it
+  to a top-level array in output/operating_state_v2_1_bcpd.json.
