@@ -1,0 +1,183 @@
+{
+  "schema_version": "exception_rules_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent C",
+  "source": {
+    "primary": "UCH_Home_DevCos_GL_Structure_Process_Guide_v4.docx",
+    "secondary": "UCH_Home_DevCos_ClickUp_Lifecycle_Tracking_Guide_v2.docx",
+    "doc_status": "originals not yet recovered into data/raw/process_docs/; rules authored from briefing extract — most are placeholders pending source confirmation."
+  },
+  "consumed_by_tools": [
+    "detect_accounting_events",
+    "query_bcp_dev_process",
+    "(deferred) generate_monthly_review_checklist"
+  ],
+  "depends_on": [
+    "status_taxonomy_v1.json",
+    "clickup_gl_event_map_v1.json",
+    "account_prefix_matrix_v1.json",
+    "monthly_review_checks_v1.json"
+  ],
+  "purpose": "Captures off-happy-path handling: cancellations, reversals, aging triggers, impairment review, partial inputs, and refusal posture.",
+  "rules": [
+    {
+      "rule_id": "EXC-001",
+      "exception_id": "cancellation_handling",
+      "name": "Lot or contract cancellation",
+      "trigger": {
+        "type": "status_change",
+        "status_change_to": "EXCEPTION_CANCELLED",
+        "status_change_from": "any DevCo lifecycle status (LND_*)"
+      },
+      "required_inputs": [
+        {"field": "Cancellation Date", "system": "clickup"},
+        {"field": "Cancellation Reason", "system": "clickup"},
+        {"field": "Original Event Reference", "system": "computed"},
+        {"field": "Finance Authorization", "system": "manual"}
+      ],
+      "action": {
+        "rule": "Reverse the most recent posted GL entry chain for the affected scope (lot/phase/property). For mid-lifecycle cancellations (e.g., MDA executed but contract terminated), reverse in inverse order of posting: warranty → water → indirect → direct → land → MDA-day land move.",
+        "do_not": "Do not delete original entries; post reversals with explicit cancellation_event linkage."
+      },
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Cancellation handling not explicitly documented in briefing extract. Rule is inferred from standard accounting practice; needs source-doc confirmation."
+    },
+    {
+      "rule_id": "EXC-002",
+      "exception_id": "missing_required_input_refusal",
+      "name": "Refusal when event required-fields missing",
+      "trigger": {
+        "type": "event_attempt",
+        "condition": "Any event from clickup_gl_event_map_v1.json with one or more required_inputs marked blocks_event_if_missing=true that resolve to null/empty."
+      },
+      "action": {
+        "rule": "Tools (detect_accounting_events, generate_per_lot_output, etc.) MUST refuse to assert the event has fired. Emit a checklist of missing fields and the system that owns each.",
+        "do_not": "Do not infer values. Do not substitute a default for FMV at Transfer or Sale Price. Do not allocate from partial inputs."
+      },
+      "verification_status": "source_doc_extracted",
+      "verification_note": "Aligns with hard rule from PROJECT_STATE.md: missing ≠ $0; unknown ≠ zero."
+    },
+    {
+      "rule_id": "EXC-003",
+      "exception_id": "mda_day_partial_tie_handling",
+      "name": "MDA Day partial tie (2 of 3 lot counts)",
+      "trigger": {
+        "type": "hard_gate_partial",
+        "gate_id": "mda_day_lot_count_check",
+        "condition": "Two of {clickup_lot_count, mda_lot_count, workbook_lot_count} present and matching, third missing or different."
+      },
+      "action": {
+        "rule": "Emit a 'partial' status, NOT 'pass' and NOT 'fail'. Do not post the MDA JE. Surface which two sources agree and which is the outlier.",
+        "next_steps": "Operator manually reconciles before re-running detect_accounting_events."
+      },
+      "verification_status": "source_doc_extracted",
+      "verification_note": "Briefing explicitly calls out 'partial' as a distinct status. Aligns with risk mitigation in plan."
+    },
+    {
+      "rule_id": "EXC-004",
+      "exception_id": "wip_aging_review",
+      "name": "WIP aging review",
+      "trigger": {
+        "type": "monthly_check",
+        "condition": "131-300 (WIP Land) or 132-500 (Direct) or 132-700 (Water) balance for a job has been non-zero for > N months without lot-sale activity."
+      },
+      "default_thresholds": {
+        "wip_land_months": 18,
+        "direct_months": 12,
+        "water_months": 18
+      },
+      "action": {
+        "rule": "Surface job for impairment / write-down review by Finance. Do not auto-post any adjustment.",
+        "next_steps": "Finance evaluates whether to maintain, write-down, or reclassify. Decision recorded as a manual JE with explicit narrative."
+      },
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Aging thresholds are placeholders — source-owner Finance to confirm. The trigger pattern (aging non-zero WIP) is standard but specific months need ratification."
+    },
+    {
+      "rule_id": "EXC-005",
+      "exception_id": "impairment_review_trigger",
+      "name": "Impairment review trigger",
+      "trigger": {
+        "type": "composite",
+        "conditions_any_of": [
+          "Phase has been in (LND) DEVELOPING > 36 months without progressing",
+          "Sales price per lot in workbook falls below allocated cost per lot by margin > 25%",
+          "Property carries 131-100 (Raw Land) without MDA execution > 24 months",
+          "Cancellation rate on a community > 30% in trailing 12 months"
+        ]
+      },
+      "action": {
+        "rule": "Surface property/community for Finance impairment evaluation. Tools do not compute or post impairment.",
+        "next_steps": "Finance + accounting policy applies; if impairment recognized, manual JE with narrative and source-owner sign-off."
+      },
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Impairment thresholds and trigger composition are inferred from standard practice. Source-doc may specify different triggers."
+    },
+    {
+      "rule_id": "EXC-006",
+      "exception_id": "duplicate_event_handling",
+      "name": "Duplicate event detection",
+      "trigger": {
+        "type": "event_attempt",
+        "condition": "An event_id is detected for the same scope (lot/phase/property) within N days of a previously detected event of the same id."
+      },
+      "default_window_days": 30,
+      "action": {
+        "rule": "Refuse to post the second event. Surface both detections with timestamps and trigger sources.",
+        "next_steps": "Operator decides whether the second is a true duplicate (suppress) or a legitimate re-trigger (manual override)."
+      },
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "EXC-007",
+      "exception_id": "unratified_method_refusal",
+      "name": "Refusal for unratified allocation method",
+      "trigger": {
+        "type": "method_invocation",
+        "condition": "Any tool attempting to compute an allocation using an allocation_methods_v1.json method with ratified=false."
+      },
+      "action": {
+        "rule": "Tools MUST refuse to compute. Return the method's refusal_reason and pointer to source-owner sign-off pathway.",
+        "currently_unratified": ["range_row_unratified"],
+        "do_not": "Do not approximate the unratified method using a ratified method as a substitute."
+      },
+      "verification_status": "source_doc_extracted",
+      "verification_note": "Mirrors v2.1 hard rule on unratified methods (range-row hold)."
+    },
+    {
+      "rule_id": "EXC-008",
+      "exception_id": "intercompany_transfer_anomaly",
+      "name": "Intercompany SIH transfer anomaly",
+      "trigger": {
+        "type": "event_attempt",
+        "condition": "Lot sale SIH event where Sale Counterparty Type != 'internal_homebuilder' OR FMV at Transfer is null."
+      },
+      "action": {
+        "rule": "Refuse to fire SIH event. Surface as candidate for reclassification to 3RDY or for input correction.",
+        "do_not": "Do not auto-reclassify. The path determines the GL accounts and revenue posting."
+      },
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "EXC-009",
+      "exception_id": "stale_source_file_warning",
+      "name": "Stale source file warning",
+      "trigger": {
+        "type": "tool_invocation",
+        "condition": "Any tool reading a source file (per state/bcp_dev/source_file_manifest_v1.json) where last_modified > freshness_caveat_days."
+      },
+      "action": {
+        "rule": "Emit a warning embedded in tool output: 'WARNING: source file <path> is N days old; values may be stale.'",
+        "do_not": "Do not refuse outright; the staleness is informational."
+      },
+      "verification_status": "source_doc_extracted",
+      "verification_note": "Pattern aligns with v2.1 freshness_caveat handling."
+    }
+  ],
+  "open_questions": [
+    "Source-doc-confirmed thresholds for EXC-004 (WIP aging) and EXC-005 (impairment).",
+    "Whether cancellation handling (EXC-001) requires distinct rules per cancellation type (pre-MDA vs post-MDA vs post-plat).",
+    "Authoritative window for EXC-006 (duplicate event).",
+    "Whether intercompany SIH transfer at FMV requires separate revenue/cost posting per legal entity beyond the briefing's single transfer pattern."
+  ]
+}

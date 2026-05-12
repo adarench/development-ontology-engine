@@ -1,0 +1,381 @@
+{
+  "schema_version": "source_crosswalks_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent D",
+  "scope": "BCP Dev v0.2 allocation / accounting tool family. BCPD-in-scope DevCos only: BCPD (BCP Development LLC), BCPBL (BCP Ben Lomond), ASD (Arrowhead Springs Development), BCPI (BCP Ironton). Hillcrest / Flagship Belmont are explicitly out of scope.",
+  "purpose": "Hand-authored, value-by-value crosswalks between source-system vocabularies (ClickUp, QBD, Allocation Workbook, JCSList, Vertical Financials, DataRails 38-col, ClickUp lifecycle) and the canonical (community, phase, lot, account, prefix, cost_pool) tuples used by v0.2 tools. Crosswalks are first-class operating state; do not 'fix' source names — map them.",
+  "consumed_by_tools_planned": [
+    "validate_crosswalk_readiness",
+    "explain_allocation_logic",
+    "detect_accounting_events",
+    "check_allocation_readiness",
+    "query_bcp_dev_process"
+  ],
+  "confidence_vocabulary": {
+    "high": "Identity mapping or unambiguous resolution corroborated by multiple sources or a clear naming convention.",
+    "medium": "Single typo or short abbreviation requiring small inference; or single-source corroboration.",
+    "low": "Heuristic; single-source historical, or naming pattern that can collide.",
+    "inferred-unknown": "Mapping could not be made; held in holding bucket pending source-owner validation.",
+    "pending_source_doc_review": "Authored from briefing / observed data; awaiting .docx/.pptx original verification.",
+    "workbook_replicated": "Computed by replicating the Flagship Allocation Workbook v3 formula on populated cells."
+  },
+  "validation_status_vocabulary": {
+    "source_doc_extracted": "Pulled directly from a source file currently in data/raw/ or in repo root.",
+    "inferred_from_briefing": "Authored from stakeholder briefing; not yet validated against original .docx/.pptx.",
+    "observed_in_data": "Confirmed by direct inspection of an in-repo CSV row.",
+    "source_owner_validated": "Validated by the human source owner (e.g., Streamline / accounting).",
+    "unvalidated": "Posited but not corroborated."
+  },
+  "row_schema": {
+    "fields": [
+      "source_system",
+      "source_value",
+      "canonical_value",
+      "canonical_type",
+      "confidence",
+      "validation_status",
+      "evidence",
+      "notes",
+      "monitored_field",
+      "update_cadence"
+    ],
+    "monitored_field": "True if the source value is expected to change over time and a tool must alert on drift.",
+    "update_cadence": "Recommended re-check frequency: 'never' (immutable), 'on_new_phase' (when a new ClickUp Phase task is created), 'monthly' (with the monthly Inventory-by-Job review), 'on_workbook_refresh' (when allocation workbook is republished), 'quarterly', 'on_demand'."
+  },
+  "tables": [
+    {
+      "table_id": "CW-01",
+      "name": "clickup_subdivision_to_canonical_community",
+      "description": "ClickUp Property/Phase/Lot task 'subdivision' custom-field value mapped to canonical community name. Source is data/raw/datarails/clickup/api-upload.csv 'subdivision' column. Drives community resolution from ClickUp lifecycle events.",
+      "monitored": true,
+      "monitor_cadence": "on_new_phase",
+      "rows": [
+        {"source_system": "ClickUp", "source_value": "Harmony", "canonical_value": "Harmony", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "data/raw/datarails/clickup/api-upload.csv (rows where subdivision=Harmony)", "notes": "Identity mapping.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Arrowhead", "canonical_value": "Arrowhead Springs", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json (project:Arrowhead Springs)", "notes": "Short form used in ClickUp; canonical full name in 2025Status / Lot Data.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Aarowhead", "canonical_value": "Arrowhead Springs", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3 (typo entry)", "notes": "Spelling typo. Single-character drop. Should be migrated at source but Agent D scope is map, not fix.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Aarrowhead", "canonical_value": "Arrowhead Springs", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Spelling typo; same canonical as 'Aarowhead'.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Park Way", "canonical_value": "Parkway Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Space-broken variant. Streamline source-owner has not yet committed to single spelling at ClickUp side.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Parkway", "canonical_value": "Parkway Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Short form.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Lomond Heights", "canonical_value": "Lomond Heights", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Salem Fields", "canonical_value": "Salem Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Willow Creek", "canonical_value": "Willowcreek", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Space drift; canonical written as one word in 2025Status / Lot Data.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Lewis Estates", "canonical_value": "Lewis Estates", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Identity. v0.2: GL data structurally missing for Lewis Estates — see notes.unresolved.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "Scarlett Ridge", "canonical_value": "Scarlet Ridge", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Misspelling: 'Scarlett' (double-t) vs canonical 'Scarlet'.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp", "source_value": "P2 14", "canonical_value": null, "canonical_type": "community", "confidence": "inferred-unknown", "validation_status": "unvalidated", "evidence": "docs/crosswalk_plan.md §3", "notes": "Cannot resolve from current sources. Held for Streamline review.", "monitored_field": true, "update_cadence": "on_demand"}
+      ]
+    },
+    {
+      "table_id": "CW-02",
+      "name": "canonical_community_to_qbd_customer",
+      "description": "Canonical community → QBD Customer record name. Observed from JCSList 'QB Job' column carrying community-rooted job names (e.g., 'Harmony B1', 'Salem Phase 2'). The QBD Customer header is typically the canonical community for BCPD; sub-customers are phase-level.",
+      "monitored": true,
+      "monitor_cadence": "monthly",
+      "rows": [
+        {"source_system": "QBD", "source_value": "Arrowhead Springs", "canonical_value": "Arrowhead Springs", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "LH Allocation 2025.10.xlsx - JCSList.csv (rows where Project=Arrowhead Springs and OUnit=ASD)", "notes": "QBD Customer naming matches canonical for this community.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Harmony", "canonical_value": "Harmony", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "LH Allocation 2025.10.xlsx - JCSList.csv (Project=Harmony, OUnit=BCPDev)", "notes": "QBD Customer naming matches canonical.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Lomond Heights", "canonical_value": "Lomond Heights", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Lomond Heights, OUnit=BCPBL", "notes": "QBD Customer = canonical.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Parkway Fields", "canonical_value": "Parkway Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Parkway Fields, OUnit=BCPDev", "notes": "QBD Customer = canonical. Job names use 'Parkway Fields <Phase>' pattern (e.g., 'Parkway Fields E-1').", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Salem Fields", "canonical_value": "Salem Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Salem Fields, OUnit=BCPDev", "notes": "QBD Job naming pattern is 'Salem Phase <N>' (e.g., 'Salem Phase 2') — not 'Salem Fields'. See CW-05 for phase-level naming.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Scarlet Ridge", "canonical_value": "Scarlet Ridge", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Scarlet Ridge, OUnit=BCPDev", "notes": "QBD Customer = canonical.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Willowcreek", "canonical_value": "Willowcreek", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Willowcreek, OUnit=BCPDev (rows naming 'Willowcreek Townhomes')", "notes": "QBD Job names use 'Willowcreek Townhomes Phase <N>'. Treat 'Willowcreek Townhomes' as a sub-customer of Willowcreek.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Ironton", "canonical_value": "Ironton", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Ironton, OUnit=BCPI", "notes": "QBD Customer = canonical.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Tooele", "canonical_value": "Tooele", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 02 Raw Land Skywalk Overall'", "notes": "QBD shows 'Tooele' as project; job names reference 'Skywalk'. Tooele/Skywalk relationship not yet ratified.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Eagle Vista", "canonical_value": "Eagle Vista", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Project=Eagle Vista, OUnit=BCPDev", "notes": "QBD Customer = canonical.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "QBD", "source_value": "Woolridge", "canonical_value": "Woolridge", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 02 Raw Land Woolridge'", "notes": "Active community but no MDA-side detail yet. Confidence medium until 2025Status corroborates.", "monitored_field": true, "update_cadence": "monthly"}
+      ]
+    },
+    {
+      "table_id": "CW-03",
+      "name": "qbd_customer_to_workbook_community",
+      "description": "QBD Customer (community) → Flagship Allocation Workbook v3 'Community' column value. Workbook is the per-lot allocation engine; its Community column governs how the engine joins QBD pools to lots.",
+      "monitored": true,
+      "monitor_cadence": "on_workbook_refresh",
+      "rows": [
+        {"source_system": "AllocationWorkbookV3", "source_value": "Arrowhead Springs", "canonical_value": "Arrowhead Springs", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Flagship Allocation Workbook v3.xlsx - Per-Lot Output.csv (Community column)", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Ben Lomond", "canonical_value": "Lomond Heights", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Flagship Allocation Workbook v3.xlsx - Indirect & Land Pools.csv (Community=Ben Lomond)", "notes": "DRIFT: workbook uses 'Ben Lomond' but QBD/2025Status canonical is 'Lomond Heights'. The DevCo is BCPBL = BCP Ben Lomond. Critical crosswalk for water/indirect pool routing.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Eagle Vista", "canonical_value": "Eagle Vista", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Indirect & Land Pools.csv", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Harmony", "canonical_value": "Harmony", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Parkway Fields", "canonical_value": "Parkway Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Salem Fields", "canonical_value": "Salem Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Scarlet Ridge", "canonical_value": "Scarlet Ridge", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv", "notes": "Identity.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Willowcreek", "canonical_value": "Willowcreek", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv", "notes": "Identity. Workbook does not currently distinguish Willowcreek Townhomes as a sub-community.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3", "source_value": "Ironton", "canonical_value": "Ironton", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Ironton Ironton Overall' present; workbook coverage pending", "notes": "BCPI scope; workbook may not yet carry Ironton rows in v3.", "monitored_field": true, "update_cadence": "on_workbook_refresh"}
+      ]
+    },
+    {
+      "table_id": "CW-04",
+      "name": "community_to_devco_entity",
+      "description": "Canonical community → owning DevCo (LegalEntity) code. Maps the property to the legal owner that posts the journal entries.",
+      "monitored": false,
+      "monitor_cadence": "quarterly",
+      "rows": [
+        {"source_system": "v0.2_ontology", "source_value": "Parkway Fields", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList rows OUnit=BCPDev for Parkway Fields", "notes": "BCPD = BCP Development LLC.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Harmony", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPDev for Harmony", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Salem Fields", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPDev for Salem Fields", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Scarlet Ridge", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPDev for Scarlet Ridge", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Willowcreek", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPDev for Willowcreek Townhomes", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Eagle Vista", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPDev for Eagle Vista", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Lewis Estates", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 02 Raw Land Pioneer Village ' (Project=Lewis Estates)", "notes": "Note that Lewis Estates legacy QBD job naming references 'Pioneer Village' and 'Dry Creek Lehi (Johnson)'. See CW-05.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Tooele", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 02 Raw Land Skywalk Overall' OUnit=BCPDev", "notes": "Skywalk-named jobs sit under Tooele project under BCPDev.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Woolridge", "canonical_value": "BCPD", "canonical_type": "devco_entity", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 02 Raw Land Woolridge'", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Lomond Heights", "canonical_value": "BCPBL", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPBL for Lomond Heights", "notes": "BCPBL = BCP Ben Lomond. Workbook calls this 'Ben Lomond' — see CW-03 drift.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Arrowhead Springs", "canonical_value": "ASD", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=ASD for Arrowhead Springs", "notes": "ASD = Arrowhead Springs Development.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "v0.2_ontology", "source_value": "Ironton", "canonical_value": "BCPI", "canonical_type": "devco_entity", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList OUnit=BCPI for Ironton", "notes": "BCPI = BCP Ironton. Small DevCo.", "monitored_field": false, "update_cadence": "quarterly"}
+      ]
+    },
+    {
+      "table_id": "CW-05",
+      "name": "phase_identifier_crosswalk",
+      "description": "Phase identifier across systems: ClickUp `phase` field, QBD job `Phase` column (JCSList col D), Allocation Workbook `Phase` column, JCSList `QB Job` (the job-name string), and Vertical Financials project_code where the code encodes phase. The same logical phase is named differently in each system.",
+      "monitored": true,
+      "monitor_cadence": "on_new_phase",
+      "rows": [
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony B1", "canonical_value": "Harmony::B1", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 03 Active Harmony B1' (Phase=B1, QB Job=Harmony B1)", "notes": "ClickUp phase field also 'B1' for this community; VF code 'Harm3' is the B1/B2 grain encoded.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony B2", "canonical_value": "Harmony::B2", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=B2 QB Job=Harmony B2", "notes": "Distinct from MF1/MF2; lot-number collisions with MF1 are real. Use 3-tuple join.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony A14", "canonical_value": "Harmony::A14", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 03 Active Harmony A14' (Phase=Mapping needed)", "notes": "Phase column blank in JCSList; QB Job carries identifier. ClickUp also tags 'H A14 1415 Dug' with phase encoded in name. Crosswalk required.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Nathan", "canonical_value": "Harmony::Nathan", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 03 Active Harmony Nathan' (Project=Harmony, Phase=Mapping needed, QB Job=Nathan)", "notes": "Sub-phase / parcel name. PLJ workbook shows it as a separate community column. Treat as Harmony::Nathan phase.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Waddell", "canonical_value": "Harmony::Waddell", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 03 Active Harmony Waddell'", "notes": "Sub-phase / parcel name. Treat as Harmony::Waddell.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony Phase A Plat 4", "canonical_value": "Harmony::A4", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "LH Allocation 2025.10.xlsx - PLJ.csv header 'Harmony Phase A Plat 4'", "notes": "PLJ column header 'Harmony Phase A Plat 4' → canonical 'Harmony::A4'. Same pattern for Plat 6, 7, 8, 9, 10, 13, 14.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony Multi-Family 1", "canonical_value": "Harmony::MF1", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "PLJ column header 'Harmony Multi-Family 1'", "notes": "ClickUp uses 'MF1'; PLJ uses 'Multi-Family 1'. Lot-number collisions with B1 are documented in v2.1 (3-tuple join required).", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony Multi-Family 2", "canonical_value": "Harmony::MF2", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "PLJ column header 'Harmony Multi-Family 2'", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Harmony Clubhouse Pool", "canonical_value": "Harmony::Clubhouse_Pool", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "PLJ column header", "notes": "Amenity sub-job; not a sellable phase. Cost-pool only.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Parkway Fields E-1", "canonical_value": "Parkway Fields::E1", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=E1 QB Job='Parkway Fields E-1'", "notes": "Hyphenated form in QBD name ('E-1'); non-hyphenated in workbook ('E1'). VF code 'PWFS2' encodes Parkway Fields S2 grain.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Parkway Fields E-2", "canonical_value": "Parkway Fields::E2", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=E2 QB Job='Parkway Fields E-2'", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Parkway Fields F", "canonical_value": "Parkway Fields::F", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=F", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Parkway Fields G2", "canonical_value": "Parkway Fields::G2", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=G2", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Parkway Fields H", "canonical_value": "Parkway Fields::H", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=H (H1 + H2 entitlement rows collapse to single 'H')", "notes": "JCSList shows 'Parkway H1 Entitlements' and 'Parkway H2 Entitlements' both with Phase=H. Either collapse intentional or naming drift — flagged for Streamline.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Salem Phase 2", "canonical_value": "Salem Fields::B", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=B QB Job='Salem Phase 2'", "notes": "DRIFT: QBD calls it 'Salem Phase 2' but the canonical phase identifier in MDA / workbook is 'B'. Critical mapping for accounting events.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Salem Phase 3", "canonical_value": "Salem Fields::C", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=C QB Job='Salem Phase 3'", "notes": "DRIFT: QBD 'Salem Phase 3' = canonical 'C'. Numbered-vs-lettered phase naming inconsistency.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Scarlet Ridge 2", "canonical_value": "Scarlet Ridge::2", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=2", "notes": "QBD job name and canonical phase both use '2'.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Scarlet Ridge 3", "canonical_value": "Scarlet Ridge::3", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=3", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Arrowhead Springs Phase 1-3", "canonical_value": "Arrowhead Springs::123", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=123 QB Job='Arrowhead Springs Phase 1-3'", "notes": "Multi-phase rollup. Lot Data column 'Phase' encodes this as the literal string '123'. Treat as a single canonical phase for now.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Park Phase 1", "canonical_value": "Arrowhead Springs::Park_1A", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=Park 1A QB Job='Park Phase 1'", "notes": "DRIFT: QBD 'Park Phase 1' = canonical phase 'Park 1A'. ASD 'Park' parcel sub-divided into 1A/1B.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Park Phase - B", "canonical_value": "Arrowhead Springs::Park_1B", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=Park 1B QB Job='Park Phase - B'", "notes": "Naming asymmetry: 1A is 'Park Phase 1' but 1B is 'Park Phase - B'. Flagged for source-owner.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Phase 2A", "canonical_value": "Lomond Heights::2A", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=2A QB Job='Phase 2A' for BCPBL", "notes": "BCPBL Lomond Heights sub-phases 2A, 2B, 2D, 4. Note 2C absent.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Phase 2B", "canonical_value": "Lomond Heights::2B", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=2B", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Phase 2D", "canonical_value": "Lomond Heights::2D", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=2D", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Phase 4", "canonical_value": "Lomond Heights::4", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=4", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Willowcreek Townhomes Phase 1", "canonical_value": "Willowcreek::WC_TH_1", "canonical_type": "phase", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=1 QB Job='Willowcreek Townhomes Phase 1'", "notes": "Phase numbers reset within product type — see CW-09 for naming pattern.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Dry Creek Lehi (Johnson)", "canonical_value": "Lewis Estates::1_Pioneer_Village", "canonical_type": "phase", "confidence": "low", "validation_status": "observed_in_data", "evidence": "JCSList row 'BCP Development 02 Raw Land Pioneer Village Pioneer Village Entitlements' (Project=Lewis Estates, QB Job='Dry Creek Lehi (Johnson)')", "notes": "Triple naming: QBD names contain 'Pioneer Village' AND 'Dry Creek Lehi (Johnson)' for Lewis Estates Phase 1. v0.2 holds canonical at Lewis Estates::1_Pioneer_Village pending Streamline review.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Interlocal Water Connection", "canonical_value": "Arrowhead Springs::Salem_Payson_CW_Interconnect", "canonical_type": "phase", "confidence": "low", "validation_status": "observed_in_data", "evidence": "JCSList row Phase=Interconnect QB Job='Interlocal Water Connection'", "notes": "Cross-community water infrastructure cost. Not a sellable phase. Should map to WTR pool, not LND.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "JCSList.qb_job", "source_value": "Offsites", "canonical_value": "Lomond Heights::Offsites", "canonical_type": "phase", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList rows 'BCP Ben Lomond 03 Active Ben Lomond Offsites'", "notes": "BCPBL offsite infrastructure. Treat as community-grain indirect pool, not a sellable phase.", "monitored_field": true, "update_cadence": "on_new_phase"}
+      ]
+    },
+    {
+      "table_id": "CW-06",
+      "name": "vf_project_code_to_canonical",
+      "description": "Vertical Financials (legacy GL) project_code → canonical (community, optional_phase_hint). VF codes encode product type + sub-phase. Brought forward from docs/crosswalk_plan.md §3 as v0.2 reference. v0.2 tools should prefer the JCSList/workbook crosswalks; VF mapping is for historical join.",
+      "monitored": false,
+      "monitor_cadence": "quarterly",
+      "rows": [
+        {"source_system": "VerticalFinancials.46col", "source_value": "ArroS1", "canonical_value": "Arrowhead Springs::SFR_Phase_1", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3 VF codes", "notes": "S1=SFR Phase 1.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "ArroT1", "canonical_value": "Arrowhead Springs::TH_Phase_1", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md", "notes": "T1=townhomes.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "AultF", "canonical_value": "Parkway Fields", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md; state/aliases.json", "notes": "AultF = Ault Farms = Parkway Fields. B-suffix lots in 101–211 range → B1.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "Harm3", "canonical_value": "Harmony::Phase_3", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Phase 3.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "HarmCo", "canonical_value": "Harmony::Commercial", "canonical_type": "phase_hint", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json (harmony_commercial_pad_nonlot)", "notes": "Commercial pads — non-lot grain.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "HarmTo", "canonical_value": "Harmony::Townhomes", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "LomHS1", "canonical_value": "Lomond Heights::SFR_Phase_2A", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json (lomondheights_sfr_phase_2a)", "notes": "S1 maps to canonical Phase 2A in current build.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "LomHT1", "canonical_value": "Lomond Heights::TH_Phase_2A", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json (lomondheights_th_phase_2a)", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "PWFS2", "canonical_value": "Parkway Fields::SFR_Phase_2", "canonical_type": "phase_hint", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "B-suffix lots in 273–323 range → B2.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "PWFT1", "canonical_value": "Parkway Fields::TH_Phase_1", "canonical_type": "phase_hint", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "ScaRdg", "canonical_value": "Scarlet Ridge", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "SctLot", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json; docs/crosswalk_plan.md §3", "notes": "Ambiguous label — see CW-07 for SctLot variant resolution.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "SalemS", "canonical_value": "Salem Fields::SFR", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md", "notes": "S=SFR product type.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "SaleTR", "canonical_value": "Salem Fields::TH_Row", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md", "notes": "TR=townhome row.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "SaleTT", "canonical_value": "Salem Fields::TH", "canonical_type": "phase_hint", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md", "notes": "TT=townhome.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "WilCrk", "canonical_value": "Willowcreek", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "MCreek", "canonical_value": "Meadow Creek", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §3", "notes": "Collateral-only community.", "monitored_field": false, "update_cadence": "quarterly"}
+      ]
+    },
+    {
+      "table_id": "CW-07",
+      "name": "sctlot_variant_to_canonical",
+      "description": "SctLot variants → 'Scattered Lots'. Maintained explicitly because the VF/QBD systems use multiple labels (Sct Lot, SctLot, scattered lots, custom build, infill) that all collapse to one canonical community.",
+      "monitored": false,
+      "monitor_cadence": "quarterly",
+      "rows": [
+        {"source_system": "any", "source_value": "SctLot", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json (project:Scattered Lots)", "notes": "Primary form.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "any", "source_value": "Sct Lot", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "high", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Space variant.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "any", "source_value": "scattered", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Truncated form; substring match risks.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "any", "source_value": "infill", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Conceptual alias used in narrative.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "any", "source_value": "custom build", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "Conceptual alias.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "any", "source_value": "custom lots", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "any", "source_value": "infill custom", "canonical_value": "Scattered Lots", "canonical_type": "community", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json", "notes": "", "monitored_field": false, "update_cadence": "quarterly"}
+      ]
+    },
+    {
+      "table_id": "CW-08",
+      "name": "lot_numbering_convention",
+      "description": "Lot-number normalization rules + project-specific encoding caveats. Not a value-by-value mapping (14k+ rows live in data/staged/staged_lot_crosswalk_v0). v0.2 records the **rules** the tools must apply.",
+      "monitored": true,
+      "monitor_cadence": "on_workbook_refresh",
+      "rows": [
+        {"source_system": "any", "source_value": "<numeric_lot_with_leading_zeros>", "canonical_value": "<lot_number_zerostripped>", "canonical_type": "lot", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "financials/stage_inventory_lots.py:_norm_lot; docs/crosswalk_plan.md §5", "notes": "Strip leading zeros from numeric prefix, preserve alpha suffix (e.g., '0127B' → '127B').", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "any", "source_value": "<lot.0_float>", "canonical_value": "<lot_int>", "canonical_type": "lot", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "financials/stage_inventory_lots.py:_norm_lot", "notes": "Strip trailing '.0' from float-coerced lot numbers.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "<4-digit lot value where project=AultF or PWFS2>", "canonical_value": "<phase_inferred_lot>", "canonical_type": "lot", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "data/reports/vf_lot_code_decoder_v1_report.md; state/aliases.json AultF B-suffix correction", "notes": "AultF lot 101–211 → phase B1; PWFS2 lot 273–323 → phase B2. v0 mis-routed 1,499 rows / $4.0M. Decoder ships in v2.1 build.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "<lot like '0139SR' or '0140SR'>", "canonical_value": "<lot_number AultF_SR_suffix>", "canonical_type": "lot", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json (AultF SR-suffix)", "notes": "401 rows of inferred-unknown AultF SR-suffix lots in v2.1. Hold for source-owner.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "<Harmony 4-digit lot like '1034'>", "canonical_value": "<phase+lot decoded>", "canonical_type": "lot", "confidence": "low", "validation_status": "observed_in_data", "evidence": "docs/crosswalk_plan.md §5", "notes": "Harmony VF lot '1034' does not correspond to inventory lot 1034 — likely encodes phase 1 lot 34. Currently 53.7% match rate.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "Harmony.lot_grain", "source_value": "<lot 101 in MF1 vs lot 101 in B1>", "canonical_value": "<3-tuple (Harmony, MF1, 101) and (Harmony, B1, 101)>", "canonical_type": "lot", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "state/aliases.json (Harmony 3-tuple join); CLAUDE.md data integrity rules", "notes": "Harmony lots numbers REPEAT across phases. Tools MUST use 3-tuple (project, phase, lot) — flat (project, lot) joins are wrong.", "monitored_field": true, "update_cadence": "on_workbook_refresh"}
+      ]
+    },
+    {
+      "table_id": "CW-09",
+      "name": "phase_naming_codes",
+      "description": "Phase-naming code dictionary used by JCSList QB Job names, Allocation Workbook Phase column, ClickUp phase custom field, and VF project_code. Covers the New Star / Harm3 / MF / B1 / B2 forms specifically called out in scope.",
+      "monitored": true,
+      "monitor_cadence": "on_new_phase",
+      "rows": [
+        {"source_system": "Harmony", "source_value": "B1", "canonical_value": "Harmony::B1", "canonical_type": "phase_code", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList, PLJ, ClickUp api-upload all show 'B1'", "notes": "Harmony block-1 SFR. Lot numbers 101-* collide with MF1 lot 101-* — see CW-08.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "Harmony", "source_value": "B2", "canonical_value": "Harmony::B2", "canonical_type": "phase_code", "confidence": "high", "validation_status": "observed_in_data", "evidence": "JCSList Phase=B2", "notes": "Block-2 SFR.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "Harmony", "source_value": "B3", "canonical_value": "Harmony::B3", "canonical_type": "phase_code", "confidence": "high", "validation_status": "observed_in_data", "evidence": "PLJ column 'Harmony B3'", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "Harmony", "source_value": "A4.1", "canonical_value": "Harmony::A4_1", "canonical_type": "phase_code", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "PLJ column 'Harmony A4.1'", "notes": "Phase A sub-plat 4 sub-1. Period-character normalization needed.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "Harmony", "source_value": "MF1", "canonical_value": "Harmony::MF1", "canonical_type": "phase_code", "confidence": "high", "validation_status": "observed_in_data", "evidence": "ClickUp api-upload phase='MF1'", "notes": "Multi-Family 1. PLJ uses 'Harmony Multi-Family 1' (full form).", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "Harmony", "source_value": "MF2", "canonical_value": "Harmony::MF2", "canonical_type": "phase_code", "confidence": "high", "validation_status": "observed_in_data", "evidence": "PLJ column 'Harmony Multi-Family 2'", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "VerticalFinancials.46col", "source_value": "Harm3", "canonical_value": "Harmony::Phase_3", "canonical_type": "phase_code", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "state/aliases.json; docs/crosswalk_plan.md §3", "notes": "VF-only short code. Phase 3 — overlap with B1/B2/MF1 grain not fully resolved.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "v2.1_legacy", "source_value": "New Star", "canonical_value": null, "canonical_type": "phase_code", "confidence": "inferred-unknown", "validation_status": "unvalidated", "evidence": "Scope brief reference; no observed New Star code in current JCSList or workbook rows", "notes": "'New Star' phase-code series referenced by lifecycle guide ('WAITING FOR NEW STARTS' status). Not the same as a phase identifier. Holding for source-owner clarification — is 'New Star' a phase code, a vertical-build status, or a homebuilder construction-start ID series?", "monitored_field": true, "update_cadence": "on_demand"},
+        {"source_system": "ClickUp", "source_value": "harmony th (tag)", "canonical_value": "Harmony::TH", "canonical_type": "tag_code", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "data/raw/datarails/clickup/api-upload.csv tag_name='harmony th'", "notes": "Tag does not equal phase. Crosswalk noted to avoid collision.", "monitored_field": true, "update_cadence": "on_new_phase"}
+      ]
+    },
+    {
+      "table_id": "CW-10",
+      "name": "gl_account_to_cost_category",
+      "description": "GL account label (PLJ row headers / DataRails 38-col AccountName / QBD register) → canonical posting-account code + cost category. Confirms which account each cost source row goes into.",
+      "monitored": true,
+      "monitor_cadence": "monthly",
+      "rows": [
+        {"source_system": "GLAccount", "source_value": "145-100 · Earnest Money Deposits", "canonical_value": "145-100", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "state/process_rules/account_prefix_matrix_v1.json ACCT-P-001", "notes": "EMD asset.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "131-100 · Raw Land", "canonical_value": "131-100", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json ACCT-P-002", "notes": "Closed-not-MDA inventory.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "131-200 · Entitled Land", "canonical_value": "131-200", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json ACCT-P-003", "notes": "Post-MDA pre-pre-con.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "131-300 · WIP Land", "canonical_value": "131-300", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json ACCT-P-004", "notes": "Catch-all WIP. All 6 prefixes can post here.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "132-500 · Direct Cost — Posting", "canonical_value": "132-500", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json ACCT-P-005", "notes": "DIR prefix only.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "132-600 · Indirect Cost — Posting", "canonical_value": "132-600", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json ACCT-P-006", "notes": "IND prefix only.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "132-700 · Water — Posting", "canonical_value": "132-700", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (water posting)", "notes": "WTR prefix only.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "240-102 · Warranty — Posting", "canonical_value": "240-102", "canonical_type": "posting_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (warranty posting)", "notes": "CPI prefix only.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "131-010 · Land — Alloc", "canonical_value": "131-010", "canonical_type": "alloc_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json", "notes": "Paired with 131-300.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "132-510 · Direct Cost — Alloc", "canonical_value": "132-510", "canonical_type": "alloc_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json", "notes": "Paired with 132-500.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "132-610 · Indirect Cost — Alloc", "canonical_value": "132-610", "canonical_type": "alloc_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json", "notes": "Paired with 132-600.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "132-710 · Water — Alloc", "canonical_value": "132-710", "canonical_type": "alloc_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json", "notes": "Paired with 132-700.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "GLAccount", "source_value": "240-112 · Warranty — Alloc", "canonical_value": "240-112", "canonical_type": "alloc_account", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json", "notes": "Paired with 240-102.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "DataRails.38col.AccountName", "source_value": "1535 Permits and Fees", "canonical_value": "DIR_permits_fees", "canonical_type": "cost_category", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "BCPD GL Detail.csv shows AccountName='Permits and Fees' with Account=1535", "notes": "Legacy chart-of-accounts account. Maps to DIR cost category (job-direct permits). Not in v2.1 8-account schema — predecessor.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "VF.46col.AccountName", "source_value": "1010 LAND ACQUISITION", "canonical_value": "LND_acquisition", "canonical_type": "cost_category", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList header columns reference '1010 LAND ACQUISITION'", "notes": "Maps to 131-100 (Raw Land) posting under LND prefix.", "monitored_field": true, "update_cadence": "monthly"},
+        {"source_system": "VF.46col.AccountName", "source_value": "3020 INTEREST EXPENSE", "canonical_value": "interest_expense_holding", "canonical_type": "cost_category", "confidence": "medium", "validation_status": "observed_in_data", "evidence": "JCSList header columns reference '3020 INTEREST EXPENSE'", "notes": "Capitalized interest. Allocation method to be ratified — likely IND or LND depending on phase status.", "monitored_field": true, "update_cadence": "monthly"}
+      ]
+    },
+    {
+      "table_id": "CW-11",
+      "name": "job_prefix_to_economic_role",
+      "description": "QBD job-name prefix → JobPrefix code from the prefix/account matrix → economic role. Prefix observed at the START of the QB Job string.",
+      "monitored": false,
+      "monitor_cadence": "quarterly",
+      "rows": [
+        {"source_system": "QBDJobPrefix", "source_value": "LND", "canonical_value": "LND", "canonical_type": "job_prefix", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (prefix LND)", "notes": "Land — community or phase scope. Valid against 145-100, 131-100, 131-200, 131-300.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "QBDJobPrefix", "source_value": "MPL", "canonical_value": "MPL", "canonical_type": "job_prefix", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (prefix MPL)", "notes": "Master Planning — community scope. Valid against 131-300.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "QBDJobPrefix", "source_value": "IND", "canonical_value": "IND", "canonical_type": "job_prefix", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (prefix IND)", "notes": "Indirect. Valid against 131-300, 132-600.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "QBDJobPrefix", "source_value": "DIR", "canonical_value": "DIR", "canonical_type": "job_prefix", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (prefix DIR)", "notes": "Direct — phase scope. Valid against 131-300, 132-500.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "QBDJobPrefix", "source_value": "WTR", "canonical_value": "WTR", "canonical_type": "job_prefix", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (prefix WTR)", "notes": "Water — phase scope. Valid against 131-300, 132-700.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "QBDJobPrefix", "source_value": "CPI", "canonical_value": "CPI", "canonical_type": "job_prefix", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "account_prefix_matrix_v1.json (prefix CPI)", "notes": "Closing / Warranty — lot scope. Valid against 240-102.", "monitored_field": false, "update_cadence": "quarterly"},
+        {"source_system": "QBDJobPrefix", "source_value": "<observed_in_jcslist_but_not_in_matrix>", "canonical_value": null, "canonical_type": "job_prefix", "confidence": "inferred-unknown", "validation_status": "unvalidated", "evidence": "JCSList rows without recognizable LND/MPL/IND/DIR/WTR/CPI prefix", "notes": "Current JCSList QB Job names (e.g., 'Harmony B1', 'Salem Phase 2') do NOT carry visible prefixes — prefix is implied by the row's parent grouping ('BCP Development 03 Active …'). v0.2 must extract prefix from the parent group label, not from QB Job. Flagged for source-owner: do prefixes appear on actual QBD job IDs, or are they encoded in the parent class hierarchy?", "monitored_field": true, "update_cadence": "on_workbook_refresh"}
+      ]
+    },
+    {
+      "table_id": "CW-12",
+      "name": "workbook_cost_type_to_cost_pool",
+      "description": "Allocation Workbook v3 cost-type labels → canonical CostPool category. From the 'Type' column in the Indirect & Land Pools sheet and the 'Allocation Engine' column headers.",
+      "monitored": true,
+      "monitor_cadence": "on_workbook_refresh",
+      "rows": [
+        {"source_system": "AllocationWorkbookV3.IndirectAndLandPools", "source_value": "INDIRECT", "canonical_value": "Indirect", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Indirect & Land Pools.csv col Type='INDIRECT'", "notes": "Community-grain. Allocation method: indirect_community (sales_basis_pct).", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3.IndirectAndLandPools", "source_value": "LAND", "canonical_value": "Land", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Indirect & Land Pools.csv col Type (Land rows below INDIRECT block)", "notes": "Land pool — allocation method: land_at_mda.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3.AllocationEngine", "source_value": "Community Indirect Pool", "canonical_value": "Indirect", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Allocation Engine.csv col header", "notes": "Same as INDIRECT — workbook uses the long form in Allocation Engine.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3.AllocationEngine", "source_value": "Community Land Pool", "canonical_value": "Land", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Allocation Engine.csv col header", "notes": "", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3.PerLotOutput", "source_value": "Direct Budget (LandDev)", "canonical_value": "Direct", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv col header", "notes": "Direct cost pool. Source: LandDev system budget. Allocation method: direct_per_phase.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "AllocationWorkbookV3.PerLotOutput", "source_value": "Direct Budget Override", "canonical_value": "Direct_Override", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Per-Lot Output.csv col header", "notes": "User-entered override; if populated, replaces LandDev value.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "Parkway_PF_summary", "source_value": "Cost of water", "canonical_value": "Water", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Parkway Allocation 2025.10.xlsx - PF.csv per-lot summary header", "notes": "Water pool. Allocation method: water_by_letter.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "Parkway_PF_summary", "source_value": "Cost of indirects", "canonical_value": "Indirect", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Parkway PF.csv per-lot summary header", "notes": "Same as INDIRECT.", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "Parkway_PF_summary", "source_value": "Cost of direct dev", "canonical_value": "Direct", "canonical_type": "cost_pool", "confidence": "high", "validation_status": "observed_in_data", "evidence": "Parkway PF.csv per-lot summary header", "notes": "", "monitored_field": true, "update_cadence": "on_workbook_refresh"},
+        {"source_system": "v0.2_ontology", "source_value": "Warranty", "canonical_value": "Warranty", "canonical_type": "cost_pool", "confidence": "pending_source_doc_review", "validation_status": "inferred_from_briefing", "evidence": "docs/bcp_dev_process_ontology_v1.md (Warranty entity)", "notes": "Warranty pool not visible in v3 workbook. Allocation method: warranty_at_sale. Pending source-doc verification.", "monitored_field": true, "update_cadence": "on_workbook_refresh"}
+      ]
+    },
+    {
+      "table_id": "CW-13",
+      "name": "lifecycle_status_to_event",
+      "description": "ClickUp lifecycle status label → AccountingEvent trigger. Subset shown here; canonical store is state/process_rules/status_taxonomy_v1.json and clickup_gl_event_map_v1.json. Included in CW so Agent E tools can validate that crosswalks resolve before allowing event detection.",
+      "monitored": true,
+      "monitor_cadence": "on_new_phase",
+      "rows": [
+        {"source_system": "ClickUp.status", "source_value": "(LND) RAW LAND", "canonical_value": "closing", "canonical_type": "accounting_event", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "status_taxonomy_v1.json STATUS-001 / clickup_gl_event_map_v1.json", "notes": "Status entry = closing event.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "(LND) ENTITLED", "canonical_value": "mda_execution", "canonical_type": "accounting_event", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "status_taxonomy_v1.json STATUS-002", "notes": "Hard-gated on MDA day lot count check.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "(LND) DEVELOPING", "canonical_value": "pre_con", "canonical_type": "accounting_event", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "status_taxonomy_v1.json STATUS-003", "notes": "", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "(LND) RECORDED - NOT SOLD", "canonical_value": "final_plat", "canonical_type": "accounting_event", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "status_taxonomy_v1.json STATUS-004", "notes": "Tracking event only; no GL entry.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "(LND) RECORDED - SIH", "canonical_value": "lot_sale_sih", "canonical_type": "accounting_event", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "status_taxonomy_v1.json STATUS-005", "notes": "Requires FMV at Transfer.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "(LND) RECORDED - SOLD 3RDY", "canonical_value": "lot_sale_3rdy", "canonical_type": "accounting_event", "confidence": "high", "validation_status": "source_doc_extracted", "evidence": "status_taxonomy_v1.json STATUS-006 (3RDY)", "notes": "Requires Sale Price.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "walk stage", "canonical_value": null, "canonical_type": "accounting_event", "confidence": "high", "validation_status": "observed_in_data", "evidence": "data/raw/datarails/clickup/api-upload.csv status='walk stage'", "notes": "Operational (homebuilder side). No DevCo GL event. gl_relevance=operational.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "under construction", "canonical_value": null, "canonical_type": "accounting_event", "confidence": "high", "validation_status": "observed_in_data", "evidence": "api-upload.csv status='under construction'", "notes": "Operational only.", "monitored_field": true, "update_cadence": "on_new_phase"},
+        {"source_system": "ClickUp.status", "source_value": "waiting for new starts", "canonical_value": null, "canonical_type": "accounting_event", "confidence": "high", "validation_status": "observed_in_data", "evidence": "api-upload.csv status='waiting for new starts'", "notes": "Operational pause between development and vertical. Possibly related to 'New Star' phase-code series in scope brief — UNRESOLVED.", "monitored_field": true, "update_cadence": "on_new_phase"}
+      ]
+    }
+  ],
+  "unresolved_mappings": [
+    {
+      "id": "UNRES-01",
+      "topic": "New Star phase-code series",
+      "details": "Scope brief mentions 'New Star / Harm3 / MF / B1 / B2 naming'. 'Harm3', 'MF', 'B1', 'B2' are all resolved (see CW-09). 'New Star' has no observable instance in the current JCSList / workbook / VF rows. The closest signal is ClickUp status 'waiting for new starts', which is a vertical-construction status — not a phase code. Source-owner clarification needed: is 'New Star' a phase-code series in QBD/VF, a vertical-build start-ID series, or shorthand for a homebuilder pause status?"
+    },
+    {
+      "id": "UNRES-02",
+      "topic": "Lewis Estates phase / Pioneer Village / Dry Creek Lehi triple-naming",
+      "details": "Lewis Estates Phase 1 appears in QBD as 'Pioneer Village' (job parent) and 'Dry Creek Lehi (Johnson)' (QB Job). No GL data flows through to Lewis Estates in v2.1 (zero match rate). Streamline must confirm whether 'Pioneer Village' is a community alias, a holding phase, or a legacy parent. Canonical phase ID held at Lewis Estates::1_Pioneer_Village."
+    },
+    {
+      "id": "UNRES-03",
+      "topic": "QBD job-prefix attribution",
+      "details": "Observed QBD job names ('Harmony B1', 'Parkway Fields E-1', 'Salem Phase 2') do NOT carry the LND/MPL/IND/DIR/WTR/CPI prefix that the account/prefix matrix expects. Prefix appears to be encoded in the parent class hierarchy ('BCP Development 03 Active …'). Need source-owner confirmation: are prefixes on actual QBD job IDs (not visible in our CSV export) or are they class-based?"
+    },
+    {
+      "id": "UNRES-04",
+      "topic": "Tooele / Skywalk relationship",
+      "details": "JCSList rows show Project=Tooele but the QB job names reference 'Skywalk'. Is Skywalk a sub-community of Tooele, or has Tooele been renamed Skywalk? Held until 2025Status confirms."
+    },
+    {
+      "id": "UNRES-05",
+      "topic": "Parkway Fields H1 / H2 phase collapse",
+      "details": "JCSList shows 'Parkway H1 Entitlements' and 'Parkway H2 Entitlements' as distinct QB jobs but both carry Phase=H. Intentional collapse, or naming drift?"
+    },
+    {
+      "id": "UNRES-06",
+      "topic": "Harm3 vs B1/B2/MF1 grain overlap",
+      "details": "VF code 'Harm3' = Harmony Phase 3. But Phase 3 contains B1, B2, B3, MF1, MF2 sub-phases (per PLJ headers). Is Harm3 a rollup or a phase peer?"
+    },
+    {
+      "id": "UNRES-07",
+      "topic": "Warranty cost-pool source",
+      "details": "Warranty pool referenced in ontology but not visible in Flagship Allocation Workbook v3 sheets. Confirm whether it lives in a different workbook (e.g., the JCS BCPD.xlsm and JCS ASD.xlsm files called out in scope which are not yet in repo) or is computed downstream."
+    },
+    {
+      "id": "UNRES-08",
+      "topic": "Salem Fields numbered-vs-lettered phase naming",
+      "details": "QBD names use 'Salem Phase 2'/'Salem Phase 3'; canonical phase IDs are 'B'/'C'. The mapping itself is clear, but the source of truth for which is canonical (number or letter) is unresolved. v0.2 picks letter to match MDA/plat documents, pending Streamline confirmation."
+    }
+  ],
+  "monitored_fields_summary": {
+    "description": "Fields whose drift should trigger a refresh / alert. v0.2 tools should query crosswalks before computing.",
+    "must_alert_on_new_value": [
+      "ClickUp.subdivision (any value not in CW-01)",
+      "ClickUp.phase (any value not in CW-05 or CW-09)",
+      "ClickUp.status (any value not in CW-13)",
+      "JCSList.QBJob (any new job name not in CW-05)",
+      "AllocationWorkbookV3.Community (any value not in CW-03)",
+      "AllocationWorkbookV3.Phase (any value not in CW-05)",
+      "Indirect&LandPools.Type (any cost_type not in CW-12)"
+    ],
+    "must_alert_on_value_change": [
+      "QBD customer name for an existing community (CW-02)",
+      "JCSList QB Job name for an existing phase (CW-05)",
+      "GL account label for existing posting/alloc codes (CW-10)"
+    ],
+    "low_priority_monitor": [
+      "VF project codes (CW-06) — legacy join, alert only on quarterly cadence",
+      "SctLot variant list (CW-07) — append-only"
+    ]
+  }
+}
