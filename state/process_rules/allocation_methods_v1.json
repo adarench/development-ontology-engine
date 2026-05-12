@@ -43,17 +43,29 @@
         {"input": "lot_count_at_mda", "system": "mda_doc", "type": "int"},
         {"input": "lot_count_in_phase", "system": "clickup_phase_task", "type": "int"},
         {"input": "lot_count_total_property", "system": "clickup_aggregate_or_workbook", "type": "int"},
-        {"input": "lot_type_mix", "system": "clickup", "type": "dict[lot_type→int]"}
+        {"input": "lot_type_mix", "system": "clickup", "type": "dict[lot_type→int]"},
+        {"input": "sales_basis_pct_per_phase", "system": "allocation_workbook_engine_sheet", "type": "decimal_pct", "candidate_for": "candidate_b_sales_basis_weighted"}
       ],
       "calculation": {
-        "phase_share_usd": "raw_land_basis_per_property * (lot_count_in_phase / lot_count_total_property)",
-        "per_lot_share_usd": "phase_share_usd / lot_count_in_phase",
-        "weighting_note": "Briefing describes lot-count weighting. If lot-type weighting (SFR vs TH vs MF basis differential) is later required, it lives in a v2 method, not here."
+        "formula_status": "pending_source_owner_confirmation",
+        "conflict_note": "Two authoritative sources disagree on weighting. The briefing extract and process ontology describe lot-count weighting; the actual Flagship Allocation Workbook v3 formula uses sales-basis weighting. Tools must not present a single confident formula until the source owner ratifies. This conflict surfaced during the BCP Dev v0.2 MCP Desktop trial (2026-05-11).",
+        "candidate_a_lot_count_weighted": {
+          "phase_share_usd": "raw_land_basis_per_property * (lot_count_in_phase / lot_count_total_property)",
+          "per_lot_share_usd": "phase_share_usd / lot_count_in_phase",
+          "source": "briefing extract; docs/bcp_dev_process_ontology_v1.md; docs/bcp_dev_allocation_accounting_tool_family_plan.md"
+        },
+        "candidate_b_sales_basis_weighted": {
+          "phase_share_usd": "community_land_pool * sales_basis_pct_per_phase",
+          "per_lot_share_usd": "phase_share_usd / phase_lot_count",
+          "source": "Flagship Allocation Workbook v3.xlsx — Allocation Engine.Land Allocated"
+        },
+        "weighting_note": "Lot-type weighting (SFR vs TH vs MF basis differential) is NOT modeled in either candidate; that would be a v2 method."
       },
       "hard_gates": ["mda_day_lot_count_check"],
       "ratified": true,
-      "verification_status": "source_doc_extracted",
-      "verification_note": "Confirmed in briefing as the canonical land allocation pattern."
+      "formula_status": "pending_source_owner_confirmation",
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Method concept is ratified — land does get allocated to phases at MDA execution. The WEIGHTING (lot-count vs sales-basis) is disputed between the briefing/ontology docs and the actual workbook formula. Tools must surface both candidates and refuse to compute under a single confident formula until the source owner confirms which is canonical."
     },
     {
       "rule_id": "ALLOC-002",
@@ -189,6 +201,7 @@
     "Water unit definition (acre-feet vs taps vs ERUs vs raw count).",
     "Whether indirect allocation must use sales_basis or may fall back to lot_count without explicit per-community ratification.",
     "Whether MPL (Master Planning) has its own allocation method or rolls into Indirect.",
-    "Whether lot-type weighting (SFR vs TH vs MF) modifies the equal-weight assumption in direct_per_phase."
+    "Whether lot-type weighting (SFR vs TH vs MF) modifies the equal-weight assumption in direct_per_phase.",
+    "Q23 (added 2026-05-11 from MCP Desktop trial): land_at_mda weighting — lot-count (briefing/ontology) vs sales-basis (Flagship workbook v3). The two authoritative sources disagree; pending source-owner ratification. Until closed, tools surface both candidates and refuse to compute under a single confident formula."
   ]
 }

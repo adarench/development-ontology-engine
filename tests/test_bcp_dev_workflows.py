@@ -182,12 +182,42 @@ def test_explain_land_at_mda(explain_tool: ExplainAllocationLogicTool) -> None:
     assert "land_at_mda" in out
     assert "ALLOC-001" in out
     assert "mda_execution" in out
-    # Calculation appears
-    assert "phase_share_usd" in out
     # GL pair appears
     assert "131-100" in out
     # Provenance and verification
     assert "## Provenance" in out
+
+
+def test_explain_land_at_mda_surfaces_formula_ambiguity(
+    explain_tool: ExplainAllocationLogicTool,
+) -> None:
+    """The Land formula is disputed between briefing (lot-count) and the
+    actual Flagship workbook (sales-basis). Tool must surface both candidates
+    and never confidently emit a single formula."""
+    out = explain_tool.run(cost_type="Land")
+    # Explicit ambiguity flag
+    assert "pending_source_owner_confirmation" in out
+    assert "AMBIGUOUS" in out
+    # Both candidate keys appear
+    assert "candidate_a_lot_count_weighted" in out
+    assert "candidate_b_sales_basis_weighted" in out
+    # Both formulas surface
+    assert "lot_count_in_phase" in out  # candidate A
+    assert "sales_basis_pct_per_phase" in out  # candidate B
+    # And neither presents as 'the' single formula
+    assert "the canonical land allocation pattern" not in out
+
+
+def test_query_land_at_mda_does_not_confidently_emit_single_formula(
+    query_tool: QueryBcpDevProcessTool,
+) -> None:
+    """Through query_bcp_dev_process, asking 'how is land allocated at MDA'
+    must also surface formula ambiguity rather than picking one candidate."""
+    out = query_tool.run(question="How is land allocated at MDA?")
+    assert "land_at_mda" in out
+    assert "pending_source_owner_confirmation" in out
+    assert "candidate_a_lot_count_weighted" in out
+    assert "candidate_b_sales_basis_weighted" in out
 
 
 def test_explain_direct_per_phase(explain_tool: ExplainAllocationLogicTool) -> None:
@@ -325,6 +355,32 @@ def test_descriptions_carry_scope_tag(ctx: BcpDevContext) -> None:
         )
 
 
+def test_detect_events_description_carries_routing_hints(ctx: BcpDevContext) -> None:
+    """Trial issue: prompts like 'what should accounting do if a lot moves to
+    LND_RECORDED_SIH but FMV at Transfer is missing' must route to
+    detect_accounting_events. Its description must signal that routing axis."""
+    desc = DetectAccountingEventsTool(context=ctx).description.lower()
+    # Each routing hint phrase must appear in the description.
+    for phrase in (
+        "status change",
+        "moves to",
+        "accounting event",
+        "missing required",
+    ):
+        assert phrase in desc, (
+            f"detect_accounting_events description missing routing hint: {phrase!r}"
+        )
+
+
+def test_query_description_carves_out_event_routing(ctx: BcpDevContext) -> None:
+    """query_bcp_dev_process must explicitly NOT claim the event-routing
+    territory; it must point at detect_accounting_events instead."""
+    desc = QueryBcpDevProcessTool(context=ctx).description.lower()
+    # Must say 'do not use' for status changes
+    assert "do not use" in desc or "do not use" in desc.replace("**", "")
+    assert "detect_accounting_events" in desc
+
+
 def test_dispatch_via_registry(ctx: BcpDevContext) -> None:
     registry = ToolRegistry()
     register_bcp_dev_workflow_tools(registry, context=ctx)
@@ -392,13 +448,38 @@ def check_alloc_tool(ctx: BcpDevContext) -> CheckAllocationReadinessTool:
     return CheckAllocationReadinessTool(context=ctx)
 
 
-def test_check_alloc_readiness_pf_e1_compute_ready(
+def test_check_alloc_readiness_pf_e1_axes_split_top_line_not_ready(
     check_alloc_tool: CheckAllocationReadinessTool,
 ) -> None:
+    """PF E1 method path is eligible (compute_ready) but required inputs
+    are incomplete today — top line MUST say 'No — not cleanly today',
+    not 'compute_ready'."""
     out = check_alloc_tool.run(community="Parkway Fields", phase="E1")
     assert "Allocation readiness" in out
+    # Both axes are reported separately
+    assert "method_status" in out
+    assert "run_readiness" in out
+    # Method path is eligible
     assert "compute_ready" in out
+    # But run readiness is NOT ready today (inputs incomplete)
+    assert "not_ready" in out or "partial" in out
+    # Top-line answer must lead with a clear no — not a hedge
+    assert "Top-line answer" in out
+    assert "No" in out and "not cleanly today" in out
     assert "## Provenance" in out
+
+
+def test_check_alloc_readiness_pf_e1_does_not_claim_ready(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    """Regression guard for the v0.2 MCP Desktop trial issue: the tool
+    must not state run_readiness=ready for PF E1 with today's inputs."""
+    out = check_alloc_tool.run(community="Parkway Fields", phase="E1")
+    # The exact backtick'd value must not appear
+    assert "`run_readiness`: `ready`" not in out
+    # And the top line must not be the green checkmark
+    top_section = out[: out.find("##") if "##" in out else len(out)]
+    assert "✅ Yes" not in top_section
 
 
 def test_check_alloc_readiness_lh_blocked_by_aaj(
