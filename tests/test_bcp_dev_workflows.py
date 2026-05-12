@@ -23,6 +23,7 @@ from core.tools.bcp_dev_workflows import (
     ExplainAllocationLogicTool,
     GeneratePerLotOutputSpecTool,
     QueryBcpDevProcessTool,
+    ReplicatePfSatellitePerLotOutputTool,
     ValidateCrosswalkReadinessTool,
     register_bcp_dev_workflow_tools,
 )
@@ -379,9 +380,10 @@ def test_register_bcp_dev_workflow_tools(ctx: BcpDevContext) -> None:
         "check_allocation_readiness",
         "detect_accounting_events",
         "generate_per_lot_output_spec",
+        "replicate_pf_satellite_per_lot_output",
     ):
         assert name in registry
-    assert len(registry) == len(BCP_DEV_WORKFLOW_TOOLS) == 6
+    assert len(registry) == len(BCP_DEV_WORKFLOW_TOOLS) == 7
 
 
 def test_descriptions_carry_scope_tag(ctx: BcpDevContext) -> None:
@@ -395,6 +397,7 @@ def test_descriptions_carry_scope_tag(ctx: BcpDevContext) -> None:
         CheckAllocationReadinessTool,
         DetectAccountingEventsTool,
         GeneratePerLotOutputSpecTool,
+        ReplicatePfSatellitePerLotOutputTool,
     ):
         assert tag in tool_cls(context=ctx).description, (
             f"{tool_cls.__name__} description missing scope tag"
@@ -789,3 +792,230 @@ def test_spec_never_emits_numeric_values(
         assert "$0.00" not in out
         assert "$1,000,000" not in out
         assert "Computed value:" not in out
+
+
+# ---------------------------------------------------------------------------
+# replicate_pf_satellite_per_lot_output (PR 5a)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def pf_tool(ctx: BcpDevContext) -> ReplicatePfSatellitePerLotOutputTool:
+    return ReplicatePfSatellitePerLotOutputTool(context=ctx)
+
+
+def test_pf_satellite_header_says_not_authoritative_compute(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """Guard against operators treating replication output as canonical compute."""
+    out = pf_tool.run(phase="E1")
+    assert "NOT authoritative compute" in out
+    assert "PF Satellite Replication" in out or "PF satellite workbook replication" in out
+
+
+def test_pf_satellite_e1_returns_lennar_plus_nonlennar_rows(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """E1 has two rows in the satellite: 173-lot Lennar at $141,121.51 and
+    25-lot non-Lennar at $120,000.00."""
+    out = pf_tool.run(phase="E1")
+    # Lennar row
+    assert "E1 (Lennar)" in out
+    assert "$141,121.51" in out
+    assert "173" in out
+    # Non-Lennar row
+    assert "$120,000.00" in out
+    assert "25" in out
+
+
+def test_pf_satellite_e1_lennar_tie_out_to_penny_precision(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """E1 SFR Lennar 173 lots: Sales/lot $141,121.51, Total cost/lot
+    $110,393.41 (negative), Margin/lot $30,728.10, Margin % 21.77%.
+
+    These come directly from the PF satellite Summary per lot section and
+    must replicate without recomputation."""
+    out = pf_tool.run(phase="E1")
+    assert "$141,121.51" in out  # Sales/lot
+    assert "$30,728.10" in out  # Margin/lot
+    assert "21.77%" in out  # Margin %
+    # Total cost/lot is negative — rendered with minus prefix in our fmt
+    assert "−$110,393.41" in out or "$110,393.41" in out
+
+
+def test_pf_satellite_default_returns_all_remaining_phases_only(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """Omitted phase → all PF Remaining (8 phase labels, 10 rows including
+    splits). Previous-section phases must not appear."""
+    out = pf_tool.run()
+    # Remaining phase labels present
+    for label in ("D2", "E1", "E2", "F", "G1 SFR", "G1 Comm", "G2", "H"):
+        # Match in a phase-display cell like "| D2 |" or "| D2 (Lennar) |"
+        assert f"| {label}" in out, f"missing PF Remaining phase {label!r}"
+    # Previous-section labels must NOT appear in a row position
+    for label in ("B2", "D1", "G1 Church"):
+        assert f"| {label} " not in out
+        assert f"| {label} (" not in out
+
+
+def test_pf_satellite_refuses_previous_section_phases(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """B2, D1, G1 Church are historical/closed."""
+    for refused in ("B2", "D1", "G1 Church"):
+        out = pf_tool.run(phase=refused)
+        assert "Refusal" in out
+        assert "historical/closed" in out
+        assert "NOT authoritative compute" in out
+        # No per-row data leaks
+        assert "Margin/lot" not in out
+
+
+def test_pf_satellite_refuses_non_pf_community(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(community="Harmony")
+    assert "non-PF community" in out
+    assert "generate_per_lot_output_spec" in out
+    # No table emitted
+    assert "Sales/lot" not in out
+
+
+def test_pf_satellite_refuses_unknown_phase(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="ZZ-not-real")
+    assert "not recognised" in out
+    assert "Sales/lot" not in out
+
+
+def test_pf_satellite_warranty_refused_per_cell_never_zero(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """Warranty must surface as refused — never as $0 or blank."""
+    out = pf_tool.run(phase="E1")
+    assert "warranty_rate_unratified" in out
+    assert "refused" in out
+    # The Warranty/lot cell must not render as $0
+    assert "| $0.00 |" not in out
+
+
+def test_pf_satellite_caveat_q23_pending(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "Q23" in out
+    assert "workbook_observed_pending_source_owner_ratification" in out
+    assert "Sales-basis weighting is workbook-observed" in out
+
+
+def test_pf_satellite_caveat_negative_indirects(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "Negative Indirects sign convention" in out
+    # Community indirects pool must surface as the negative figure
+    assert "1,249,493.54" in out
+
+
+def test_pf_satellite_caveat_estimated_direct_base(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """E2/F/G1/G2/H carry Est. $60K/lot; G1 Comm adds $300K commercial."""
+    out = pf_tool.run()
+    assert "Estimated Direct Base" in out
+    assert "$60K/lot" in out
+    # E1 distinct: authoritative LD budget
+    assert "authoritative" in out.lower()
+    # D2 distinct: Actuals plus $500K
+    assert "$500K" in out
+
+
+def test_pf_satellite_caveat_water_zero(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "Water = $0" in out
+    assert "Ault Water" in out
+
+
+def test_pf_satellite_caveat_mda_day_tie_not_validated(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "MDA Day three-way tie not validated" in out
+    assert "ClickUp" in out
+
+
+def test_pf_satellite_caveat_previous_section_refused(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "Previous-section phases refused" in out
+
+
+def test_pf_satellite_caveat_range_row_refused(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "Range rows refused" in out
+    assert "EXC-007" in out
+
+
+def test_pf_satellite_provenance_block_present(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="E1")
+    assert "## Provenance" in out
+    assert "Source file" in out
+    assert "Parkway Allocation 2025.10.xlsx - PF.csv" in out
+    assert "Phase filter applied" in out
+    assert "Read-through, not recomputed" in out
+
+
+def test_pf_satellite_g1_comm_special_pricing(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """G1 Comm has 1 lot at $1,565,160 (commercial pad)."""
+    out = pf_tool.run(phase="G1 Comm")
+    assert "G1 Comm" in out
+    assert "$1,565,160.00" in out
+    assert "Comm" in out
+    # Caveat about $300K commercial direct base
+    assert "$300K commercial" in out
+
+
+def test_pf_satellite_d2_estimated_caveat(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    out = pf_tool.run(phase="D2")
+    assert "Actuals plus $500K" in out
+    # D2 has two rows: Lennar 30 + non-Lennar 52
+    assert "| D2 (Lennar)" in out
+    assert "| D2 |" in out  # non-Lennar row label
+
+
+def test_pf_satellite_dispatch_via_registry(ctx: BcpDevContext) -> None:
+    registry = ToolRegistry()
+    register_bcp_dev_workflow_tools(registry, context=ctx)
+    out = registry.dispatch(
+        "replicate_pf_satellite_per_lot_output", {"phase": "E1"}
+    )
+    assert "E1 (Lennar)" in out
+    assert "## Provenance" in out
+    assert "NOT authoritative compute" in out
+
+
+def test_pf_satellite_description_says_pf_only_and_not_authoritative(
+    pf_tool: ReplicatePfSatellitePerLotOutputTool,
+) -> None:
+    """MCP description must signal: PF only, read-through, not authoritative,
+    no range rows, no warranty fill, closed phases refused."""
+    desc = pf_tool.description.lower()
+    assert "pf only" in desc or "pf-only" in desc or "parkway fields satellite" in desc
+    assert "not authoritative" in desc
+    assert "warranty" in desc
+    assert "previous-section" in desc or "historical" in desc or "closed" in desc
+    assert "non-pf communities are refused" in desc or "refuses" in desc

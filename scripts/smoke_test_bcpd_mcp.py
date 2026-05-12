@@ -182,6 +182,24 @@ CHECKS: List[WorkflowCheck] = [
             "detection only",
         ],
     ),
+    WorkflowCheck(
+        tool_name="replicate_pf_satellite_per_lot_output",
+        args={"phase": "E1"},
+        must_contain=[
+            "NOT authoritative compute",
+            "PF Satellite Replication",
+            "E1 (Lennar)",
+            "$141,121.51",  # E1 Lennar Sales/lot
+            "$30,728.10",  # E1 Lennar Margin/lot — tie-out to penny
+            "Q23",  # source-owner ratification caveat
+            "warranty_rate_unratified",  # warranty refused per cell
+            "Negative Indirects sign convention",
+            "MDA Day three-way tie not validated",
+            "## Provenance",
+        ],
+        # Spec only — no fabricated $0 warranty, no master-engine compute
+        must_not_contain=["Warranty/lot: $0.00", "master_engine"],
+    ),
 ]
 
 
