@@ -16,7 +16,7 @@ server. PR 3 will add the readiness tools (`validate_crosswalk_readiness`,
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from core.agent.bcp_dev_context import BcpDevContext, OUT_OF_SCOPE_COMMUNITIES
 from core.tools.base import Tool
@@ -193,6 +193,17 @@ def _find_method(ctx: BcpDevContext, question: str) -> Optional[dict]:
     for ct in ("warranty", "water", "indirect"):
         if ct in q and ct in cost_to_method:
             return cost_to_method[ct]
+    # Land disambiguation: only resolve to land_at_mda when paired with an
+    # allocation-context cue (mda, allocate, allocation, basis). This avoids
+    # collisions with status-lifecycle phrasing like "LND_RAW_LAND".
+    if "land" in q and (
+        "mda" in q
+        or "allocat" in q  # allocate / allocation / allocated
+        or "land basis" in q
+        or "land pool" in q
+    ):
+        if "land" in cost_to_method:
+            return cost_to_method["land"]
     # "shell_range_row" / "range row" → unratified method
     if "range row" in q or "range-row" in q or "shell" in q:
         return cost_to_method.get("shell_range_row")
@@ -221,11 +232,15 @@ class QueryBcpDevProcessTool(Tool):
     output_format = "markdown"
     name = "query_bcp_dev_process"
     description = (
-        "[BCP Dev v0.2 — forward-looking accounting process] Answer process "
-        "questions about ClickUp lifecycle statuses, accounting events / GL "
-        "triggers, account-prefix matrix, allocation methods, monthly review "
-        "checks, and exception/refusal rules. Cites rule IDs and rule files. "
-        "Refuses to invent rules or unratified allocation methods."
+        "[BCP Dev v0.2 — forward-looking accounting process] **General "
+        "process Q&A.** Use this for 'how does X work', 'what is Y', "
+        "'explain Z' questions about the BCP Dev process itself — "
+        "lifecycle statuses, allocation methods, account prefixes, monthly "
+        "review checks, exception rules. **Do NOT use** for 'what should "
+        "accounting do given this specific lot's status change' or 'this "
+        "lot just moved to status X' — that is `detect_accounting_events`. "
+        "Cites rule IDs and rule files. Refuses to invent rules or "
+        "unratified allocation methods."
     )
 
     def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
@@ -497,6 +512,7 @@ class QueryBcpDevProcessTool(Tool):
             applies = method.get("applies_to") or {}
             trig = method.get("trigger_event")
             vstat = method.get("verification_status")
+            formula_status = method.get("formula_status")
             lines = [
                 header,
                 f"**Method `{mid}`** ([{rid} from allocation_methods_v1.json])\n\n",
@@ -506,6 +522,8 @@ class QueryBcpDevProcessTool(Tool):
                 f"- Trigger event: `{trig}`\n",
                 f"- Ratified: **{ratified}**\n",
             ]
+            if formula_status:
+                lines.append(f"- Formula status: **`{formula_status}`**\n")
             if not ratified:
                 refusal = method.get("refusal_reason", "Method is unratified; tools refuse to compute.")
                 lines.append(f"- **Refusal**: {refusal}\n")
@@ -523,7 +541,32 @@ class QueryBcpDevProcessTool(Tool):
                             f"(source: `{i.get('system')}`, type: `{i.get('type')}`)\n"
                         )
                 calc = method.get("calculation") or {}
-                if calc:
+                if calc and formula_status == "pending_source_owner_confirmation":
+                    lines.append(
+                        "- **Formula is AMBIGUOUS — pending source-owner "
+                        "confirmation.** Two candidates documented:\n"
+                    )
+                    if calc.get("conflict_note"):
+                        lines.append(f"  - {calc['conflict_note']}\n")
+                    for cand_key in (
+                        "candidate_a_lot_count_weighted",
+                        "candidate_b_sales_basis_weighted",
+                    ):
+                        cand = calc.get(cand_key)
+                        if isinstance(cand, Mapping):
+                            phase_share = cand.get("phase_share_usd", "—")
+                            src = cand.get("source", "—")
+                            lines.append(
+                                f"  - **{cand_key}** "
+                                f"(source: {src}): `phase_share_usd = {phase_share}`\n"
+                            )
+                    extra_notes.append(
+                        f"Caveat: `{mid}` formula is "
+                        "`pending_source_owner_confirmation` (Q23). Both candidate "
+                        "formulas surfaced — tools refuse to compute under a single "
+                        "weighting until source-owner ratifies."
+                    )
+                elif calc:
                     lines.append("- Calculation:\n")
                     for k, v in calc.items():
                         lines.append(f"  - `{k}`: {v}\n")
@@ -619,13 +662,18 @@ class ExplainAllocationLogicTool(Tool):
     output_format = "markdown"
     name = "explain_allocation_logic"
     description = (
-        "[BCP Dev v0.2 — forward-looking accounting process] Explain the "
-        "allocation method that applies for a given cost_type (Land, Direct, "
-        "Indirect, Water, Warranty, shell_range_row) or accounting event "
-        "(closing, mda_execution, pre_con, water_letter_received, "
-        "lot_sale_sih, lot_sale_3rdy, etc.). Returns trigger, required inputs, "
-        "calculation formula, ratified status, and GL accounts touched. "
-        "Refuses to fabricate methods for unratified cases."
+        "[BCP Dev v0.2 — forward-looking accounting process] **Use this "
+        "for 'how is X allocated' / 'what method applies to cost type Y' "
+        "/ 'what's the allocation formula for Z' questions.** Explain "
+        "the allocation method that applies for a given cost_type (Land, "
+        "Direct, Indirect, Water, Warranty, shell_range_row) or "
+        "accounting event (closing, mda_execution, pre_con, "
+        "water_letter_received, lot_sale_sih, lot_sale_3rdy, etc.). "
+        "Returns trigger, required inputs, calculation formula, ratified "
+        "status, and GL accounts touched. **Surfaces formula ambiguity** "
+        "(e.g. `land_at_mda` has lot-count vs sales-basis candidates "
+        "pending source-owner confirmation — both are shown). Refuses "
+        "to fabricate methods for unratified cases."
     )
 
     def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
@@ -762,6 +810,7 @@ class ExplainAllocationLogicTool(Tool):
         applies = method.get("applies_to") or {}
         ratified = bool(method.get("ratified"))
         vstat = method.get("verification_status")
+        formula_status = method.get("formula_status")
 
         lines = [
             f"### Method `{mid}` "
@@ -773,6 +822,8 @@ class ExplainAllocationLogicTool(Tool):
             f"- Ratified: **{ratified}**\n",
             f"- Verification: `{vstat}`\n",
         ]
+        if formula_status:
+            lines.append(f"- Formula status: **`{formula_status}`**\n")
 
         if not ratified:
             lines.append(
@@ -796,9 +847,38 @@ class ExplainAllocationLogicTool(Tool):
                 )
         calc = method.get("calculation") or {}
         if calc:
-            lines.append("\n**Calculation:**\n\n")
-            for k, v in calc.items():
-                lines.append(f"- `{k}`: {v}\n")
+            # Special-case: formula is ambiguous → surface both candidates with a
+            # leading warning. Do NOT collapse to a single confident formula.
+            if formula_status == "pending_source_owner_confirmation":
+                lines.append(
+                    "\n**Formula is AMBIGUOUS — pending source-owner confirmation.** "
+                    "Two authoritative sources disagree; both candidates are documented "
+                    "below. Tools must not present a single confident formula until the "
+                    "source owner ratifies which is canonical.\n\n"
+                )
+                if calc.get("conflict_note"):
+                    lines.append(f"> {calc['conflict_note']}\n\n")
+                for cand_key in ("candidate_a_lot_count_weighted", "candidate_b_sales_basis_weighted"):
+                    cand = calc.get(cand_key)
+                    if isinstance(cand, Mapping):
+                        lines.append(f"**`{cand_key}`** "
+                                     f"(source: {cand.get('source', '—')}):\n\n")
+                        for k, v in cand.items():
+                            if k == "source":
+                                continue
+                            lines.append(f"- `{k}`: {v}\n")
+                        lines.append("\n")
+                if calc.get("weighting_note"):
+                    lines.append(f"_{calc['weighting_note']}_\n")
+                extra_notes.append(
+                    f"Caveat: `{mid}` formula is `pending_source_owner_confirmation` "
+                    "(Q23 in allocation_methods_v1.json). Tools surface both candidate "
+                    "formulas and refuse to compute under a single weighting."
+                )
+            else:
+                lines.append("\n**Calculation:**\n\n")
+                for k, v in calc.items():
+                    lines.append(f"- `{k}`: {v}\n")
 
         # GL pair from account_prefix_matrix via the alloc_pair string on the method
         pair = applies.get("alloc_pair")
@@ -885,11 +965,14 @@ class ValidateCrosswalkReadinessTool(Tool):
     output_format = "markdown"
     name = "validate_crosswalk_readiness"
     description = (
-        "[BCP Dev v0.2 — forward-looking accounting process] Report "
-        "crosswalk readiness across the 13 v0.2 crosswalk tables: resolved "
-        "counts, unresolved-in-table rows (canonical_value=null), "
-        "UNRES-* unresolved mappings, stale source files, and monitored-"
-        "field drift alerts. Scope filter by community / DevCo / 'all'."
+        "[BCP Dev v0.2 — forward-looking accounting process] **Use this "
+        "for 'which crosswalks need maintenance' / 'what crosswalk is "
+        "blocking X' / 'are there stale source files' questions.** "
+        "Reports readiness across the 13 v0.2 crosswalk tables: resolved "
+        "counts, unresolved-in-table rows (canonical_value=null — "
+        "explicitly unmapped, never blank), UNRES-* unresolved mappings, "
+        "stale source files, and monitored-field drift alerts. Scope "
+        "filter by community / DevCo / 'all'."
     )
 
     def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
@@ -1020,17 +1103,19 @@ def _scope_matches(scope: str, row: Any, tables: Iterable[Any]) -> bool:
 
 
 class CheckAllocationReadinessTool(Tool):
-    """Per (community, phase) readiness check using BcpDevContext.compute_status_for()."""
+    """Per (community, phase) readiness with separate method-eligibility and
+    run-today-with-current-inputs axes."""
 
     output_format = "markdown"
     name = "check_allocation_readiness"
     description = (
-        "[BCP Dev v0.2 — forward-looking accounting process] Given a "
-        "(community, phase?) pair, report whether allocation can run today: "
-        "compute_status decision, MDA Day tie-status, input checklist, "
-        "crosswalk readiness, blocker list. Refuses to claim 'ready' for "
-        "out-of-scope DevCos, LH (AAJ #ERROR cascade), range-row methods, "
-        "or master communities with no pricing."
+        "[BCP Dev v0.2 — forward-looking accounting process] Use this tool "
+        "for 'Can we run allocation for (community, phase) today?' — returns "
+        "a top-line ready / partial / not_ready / blocked answer plus two "
+        "separated axes: `method_status` (is the allocation path eligible?) "
+        "and `run_readiness` (are inputs actually available right now?). "
+        "Refuses to claim 'ready' when required inputs are incomplete even "
+        "if the method itself is eligible."
     )
 
     def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
@@ -1069,49 +1154,82 @@ class CheckAllocationReadinessTool(Tool):
         if not community:
             return "**ERROR**: `community` is required."
 
-        out: list[str] = [_scope_header()]
-        out.append(f"# Allocation readiness — {community}"
-                   + (f" / {phase}" if phase else "") + "\n\n")
-
         status_result = self._ctx.compute_status_for(community, phase)
+        method_status = status_result.decision  # eligibility of method path
+
+        reqs = self._ctx.allocation_input_requirements()
+        global_inputs = list(reqs.get("global_required_inputs") or ())
+
+        # Classify each blocking input as present / partial / missing for this
+        # community using the default_status_today string. Communities that
+        # appear in input-specific populated lists are treated as present.
+        input_signals: list[dict] = []
+        present_n = 0
+        missing_n = 0
+        partial_n = 0
+        for r in global_inputs:
+            if not r.get("blocking"):
+                continue
+            signal = self._classify_input(r, community, phase)
+            input_signals.append(signal)
+            if signal["state"] == "present":
+                present_n += 1
+            elif signal["state"] == "missing":
+                missing_n += 1
+            else:
+                partial_n += 1
+
+        run_readiness, top_line = self._derive_run_readiness(
+            method_status, status_result.reason, missing_n, partial_n, present_n
+        )
+
+        out: list[str] = [_scope_header()]
         out.append(
-            f"**Decision:** `{status_result.decision}`"
-            + (f" — reason: `{status_result.reason}`" if status_result.reason else "")
-            + "\n\n"
+            f"# Allocation readiness — {community}"
+            + (f" / {phase}" if phase else "") + "\n\n"
+        )
+        out.append(f"**Top-line answer:** {top_line}\n\n")
+        out.append(
+            f"- `method_status`: `{method_status}`"
+            + (f" — `{status_result.reason}`" if status_result.reason else "")
+            + "\n"
+        )
+        out.append(f"- `run_readiness`: `{run_readiness}`\n")
+        out.append(
+            f"- Required-input check: {present_n} present, {partial_n} partial, "
+            f"{missing_n} missing (of {len(input_signals)} blocking inputs)\n\n"
         )
 
         if status_result.blockers:
-            out.append("**Blockers:**\n\n")
+            out.append("## Blockers\n\n")
             for b in status_result.blockers:
                 out.append(f"- {b}\n")
             out.append("\n")
         if status_result.caveats:
-            out.append("**Caveats:**\n\n")
+            out.append("## Caveats\n\n")
             for c in status_result.caveats:
                 out.append(f"- {c}\n")
             out.append("\n")
 
-        # MDA Day tie status — best-effort, PR-1 skeleton (no count overrides in this path).
         if phase:
             mda = self._ctx.mda_day_check(community, phase)
             out.append(
-                f"**MDA Day three-way tie:** `{mda.status}` — {mda.note}\n\n"
+                f"## MDA Day three-way tie\n\n"
+                f"- Status: `{mda.status}` — {mda.note}\n\n"
             )
 
-        # Input checklist (always show — drives operator awareness even on blocked).
-        reqs = self._ctx.allocation_input_requirements()
-        global_inputs = list(reqs.get("global_required_inputs") or ())
         out.append("## Required inputs (from allocation_input_requirements_v1.json)\n\n")
-        out.append("| Input | Category | Grain | Source | Today |\n")
+        out.append("| Input | State | Category | Source | Today |\n")
         out.append("|---|---|---|---|---|\n")
-        for r in global_inputs:
+        for sig in input_signals:
+            r = sig["row"]
             out.append(
-                f"| `{r.get('input_id')}` | {r.get('category')} | {r.get('grain')} | "
+                f"| `{r.get('input_id')}` | **{sig['state']}** | "
+                f"{r.get('category')} | "
                 f"{r.get('source_system_authoritative')} | "
                 f"{r.get('default_status_today', '—')} |\n"
             )
 
-        # Crosswalk readiness — summary line + UNRES count.
         cw = self._ctx.source_crosswalks()
         unres_count = len(list(cw.get("unresolved_mappings") or ()))
         out.append(
@@ -1120,26 +1238,115 @@ class CheckAllocationReadinessTool(Tool):
             "(see `validate_crosswalk_readiness` for the full list).\n"
         )
 
-        # Refusal-pattern cross-references.
-        if status_result.decision == "blocked":
+        if method_status == "blocked":
             out.append(
                 "\n## Refusal\n\n"
-                "Tool refuses to claim 'ready'. "
+                "Tool refuses to claim ready. "
                 f"Reason: `{status_result.reason}`. "
                 "See `exception_rules_v1.json` for the canonical refusal "
                 "patterns: `EXC-002` (missing required input), "
                 "`EXC-007` (unratified method).\n"
+            )
+        elif run_readiness in {"not_ready", "partial"}:
+            out.append(
+                "\n## Why not 'ready' today\n\n"
+                "The method path is eligible, but required inputs are not all "
+                "available right now. The two axes are kept separate on "
+                "purpose: `method_status` describes whether the allocation can "
+                "be done *in principle* for this (community, phase); "
+                "`run_readiness` describes whether it can be done "
+                "*with today's data*. Tool refuses to answer 'yes, run it' "
+                "until both reach ready.\n"
             )
 
         out.append("\n" + _provenance_block(
             self._ctx,
             ("allocation_methods", "event_map", "exception_rules", "monthly_review_checks"),
             extra_notes=[
-                "Decision tree lives in `BcpDevContext.compute_status_for()` "
-                "(plan §4). MDA Day partial-tie returns `partial`, not `fail`.",
+                "Method status from `BcpDevContext.compute_status_for()` "
+                "(plan §4). Run readiness derived from "
+                "`allocation_input_requirements_v1.json.global_required_inputs` "
+                "+ community-specific populated lists. MDA Day partial-tie "
+                "returns `partial`, not `fail`.",
             ],
         ))
         return "".join(out)
+
+    @staticmethod
+    def _classify_input(row: dict, community: str, phase: Optional[str]) -> dict:
+        """Heuristic: classify a blocking input as present / partial / missing
+        for this (community, phase). Reads `default_status_today` plus any
+        community-specific populated lists embedded on the row."""
+        today = str(row.get("default_status_today", ""))
+        today_lower = today.lower()
+
+        # Community-specific overrides on the row (e.g.
+        # phases_with_value_in_master, communities_with_pool_in_master).
+        for list_key in (
+            "communities_with_pool_in_master",
+            "phases_with_value_in_master",
+        ):
+            items = list(row.get(list_key) or ())
+            for item in items:
+                if not isinstance(item, str):
+                    continue
+                if community.lower() in item.lower() or (
+                    phase and phase.lower() in item.lower()
+                ):
+                    return {"row": row, "state": "present", "evidence": list_key}
+
+        if "missing" in today_lower:
+            return {"row": row, "state": "missing", "evidence": today}
+        if "needs_" in today_lower or "stale" in today_lower or "satellite_only" in today_lower:
+            return {"row": row, "state": "partial", "evidence": today}
+        if "implicit" in today_lower or "sparse" in today_lower:
+            return {"row": row, "state": "partial", "evidence": today}
+        if "present" in today_lower:
+            return {"row": row, "state": "present", "evidence": today}
+        return {"row": row, "state": "partial", "evidence": today}
+
+    @staticmethod
+    def _derive_run_readiness(
+        method_status: str,
+        reason: Optional[str],
+        missing_n: int,
+        partial_n: int,
+        present_n: int,
+    ) -> tuple[str, str]:
+        """Return (run_readiness, top_line_markdown_answer)."""
+        if method_status == "blocked":
+            return (
+                "blocked",
+                f"❌ Blocked — `{reason}`. Allocation cannot be run today and "
+                "the method path is not eligible.",
+            )
+        if method_status == "spec_only":
+            return (
+                "not_ready",
+                "❌ Cannot run — master pricing is missing; only spec-only "
+                "output is available for this scope.",
+            )
+        # method_status in {compute_ready, compute_ready_with_caveat}
+        if missing_n == 0 and partial_n == 0:
+            return (
+                "ready",
+                "✅ Yes — method is eligible and all required inputs are "
+                "available today.",
+            )
+        if missing_n == 0 and partial_n > 0:
+            return (
+                "partial",
+                "⚠️ Partial — method is eligible, but some required inputs "
+                "are partial (e.g. satellite-only, needs a fresh pull). Run "
+                "with caveats or stage the missing pulls first.",
+            )
+        return (
+            "not_ready",
+            "❌ No — not cleanly today. The allocation method is **eligible** "
+            "(`method_status: " + method_status + "`), but **required inputs "
+            "are incomplete** (`run_readiness: not_ready`). See the checklist "
+            "below for what's missing.",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1153,12 +1360,20 @@ class DetectAccountingEventsTool(Tool):
     output_format = "markdown"
     name = "detect_accounting_events"
     description = (
-        "[BCP Dev v0.2 — forward-looking accounting process] Given a "
-        "ClickUp export CSV path or an explicit list of status changes, "
-        "surface the AccountingEvents that should fire under "
-        "clickup_gl_event_map_v1.json. Detection only — never posts "
-        "entries. Surfaces missing required inputs, sentinel SIH/3RDY "
-        "credit codes, unresolved crosswalks, and MDA Day partial-tie."
+        "[BCP Dev v0.2 — forward-looking accounting process] **Use this "
+        "tool for ClickUp status changes and 'what should accounting do' "
+        "questions.** Triggers include: 'a lot moves to status X', 'this "
+        "lot just changed status', 'what accounting event should fire "
+        "when status changes to LND_RECORDED_SIH', 'status changed but a "
+        "required field is missing — is it blocked?', 'lot status "
+        "changed — what GL entries should post?'. Given an explicit list "
+        "of status changes or a ClickUp export CSV path, surfaces the "
+        "AccountingEvents that should fire under "
+        "clickup_gl_event_map_v1.json with the recommended JE shape. "
+        "**Detection only — never posts entries.** Reports missing "
+        "required fields (refusal with reason), MDA Day two-of-three "
+        "partial tie, SIH/3RDY credit-side sentinel codes as "
+        "pending_source_doc_review, and unresolved crosswalk values."
     )
 
     def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
@@ -1457,13 +1672,15 @@ class GeneratePerLotOutputSpecTool(Tool):
     output_format = "markdown"
     name = "generate_per_lot_output_spec"
     description = (
-        "[BCP Dev v0.2 — forward-looking accounting process] For a given "
-        "(community, phase?), return the canonical Per-Lot Output shape "
-        "with per-field compute_status and blocker list. SPEC ONLY — never "
-        "emits computed dollar values. Cites refusal patterns from "
-        "`per_lot_output_schema_v1.json` for warranty, range-row, missing "
-        "pricing, LH AAJ #ERROR, unresolved crosswalks, and PF negative-"
-        "Indirects sign convention."
+        "[BCP Dev v0.2 — forward-looking accounting process] **Use this "
+        "for 'what does the Per-Lot Output look like for (community, "
+        "phase)' / 'show me the Per-Lot Output spec' / 'what fields are "
+        "blocked' questions.** Returns the canonical Per-Lot Output "
+        "shape with per-field compute_status and blocker list. "
+        "**SPEC ONLY — never emits computed dollar values.** Cites "
+        "refusal patterns from `per_lot_output_schema_v1.json` for "
+        "warranty, range-row, missing pricing, LH AAJ #ERROR, unresolved "
+        "crosswalks, and PF negative-Indirects sign convention."
     )
 
     def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
