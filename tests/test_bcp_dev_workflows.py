@@ -188,36 +188,82 @@ def test_explain_land_at_mda(explain_tool: ExplainAllocationLogicTool) -> None:
     assert "## Provenance" in out
 
 
-def test_explain_land_at_mda_surfaces_formula_ambiguity(
+def test_explain_land_at_mda_states_sales_basis_as_current_workbook_method(
     explain_tool: ExplainAllocationLogicTool,
 ) -> None:
-    """The Land formula is disputed between briefing (lot-count) and the
-    actual Flagship workbook (sales-basis). Tool must surface both candidates
-    and never confidently emit a single formula."""
+    """After workbook CSV inspection, sales-basis is the current workbook
+    method. The tool must surface it as such, mention lot-count only as a
+    control / tie-out interpretation, and note that formal source-owner
+    ratification is still pending."""
     out = explain_tool.run(cost_type="Land")
-    # Explicit ambiguity flag
-    assert "pending_source_owner_confirmation" in out
-    assert "AMBIGUOUS" in out
-    # Both candidate keys appear
-    assert "candidate_a_lot_count_weighted" in out
-    assert "candidate_b_sales_basis_weighted" in out
-    # Both formulas surface
-    assert "lot_count_in_phase" in out  # candidate A
-    assert "sales_basis_pct_per_phase" in out  # candidate B
-    # And neither presents as 'the' single formula
-    assert "the canonical land allocation pattern" not in out
+    # Headline names sales-basis as the current workbook method
+    assert "Current workbook method" in out
+    assert "sales_basis_weighted" in out
+    # Sales-basis formula surfaces
+    assert "sales_basis_pct_per_phase" in out
+    assert "community_land_pool" in out
+    # Lot-count form is present but explicitly labelled as control/tie-out,
+    # NOT the workbook formula
+    assert "Control / tie-out interpretation" in out
+    assert "NOT the workbook formula" in out
+    assert "raw_land_basis_per_property" in out
+    # Reconciliation explains lot counts remain required for tie-out & per-lot
+    assert "Reconciliation" in out
+    assert "MDA Day tie-out" in out
+    assert "per-lot denominator" in out
+    # Formal source-owner ratification still pending
+    assert "Q23" in out
+    assert "ratification still pending" in out
+    # And the symmetric "AMBIGUOUS / both candidates equally weighted" framing
+    # is gone.
+    assert "AMBIGUOUS" not in out
+    assert "candidate_a_lot_count_weighted" not in out
+    assert "candidate_b_sales_basis_weighted" not in out
 
 
-def test_query_land_at_mda_does_not_confidently_emit_single_formula(
+def test_explain_land_at_mda_does_not_state_lot_count_as_current_formula(
+    explain_tool: ExplainAllocationLogicTool,
+) -> None:
+    """Regression guard: the tool must not present lot-count weighting as
+    the current workbook formula."""
+    out = explain_tool.run(cost_type="Land")
+    # The lot-count formula appears, but only inside the control-interpretation
+    # block — never as the headline workbook method.
+    headline_section = out[: out.find("Reconciliation")]
+    assert "Current workbook method" in headline_section
+    assert "sales_basis_weighted" in headline_section
+    # The headline must not say lot-count is the current method
+    assert "Current workbook method: `lot_count" not in headline_section
+
+
+def test_explain_land_at_mda_mentions_lot_count_for_tie_out(
+    explain_tool: ExplainAllocationLogicTool,
+) -> None:
+    """Lot counts are still required for MDA tie-out and per-lot math even
+    though sales-basis is the allocation weighting. The reconciliation note
+    must say so."""
+    out = explain_tool.run(cost_type="Land")
+    # Lot counts surface as required-for-tie-out / per-lot-denominator
+    assert "Lot counts" in out
+    assert "MDA Day tie-out" in out
+    assert "per-lot denominator" in out
+
+
+def test_query_land_at_mda_states_sales_basis_as_current_method(
     query_tool: QueryBcpDevProcessTool,
 ) -> None:
-    """Through query_bcp_dev_process, asking 'how is land allocated at MDA'
-    must also surface formula ambiguity rather than picking one candidate."""
+    """The query tool must mirror the explain tool: sales-basis as the
+    current workbook method, lot-count as control only."""
     out = query_tool.run(question="How is land allocated at MDA?")
     assert "land_at_mda" in out
-    assert "pending_source_owner_confirmation" in out
-    assert "candidate_a_lot_count_weighted" in out
-    assert "candidate_b_sales_basis_weighted" in out
+    assert "Current workbook method" in out
+    assert "sales_basis_weighted" in out
+    assert "community_land_pool * sales_basis_pct_per_phase" in out
+    # Reconciliation message
+    assert "Reconciliation" in out or "reconciliation" in out
+    # No symmetric ambiguity framing in the headline
+    assert "candidate_a_lot_count_weighted" not in out
+    assert "candidate_b_sales_basis_weighted" not in out
 
 
 def test_explain_direct_per_phase(explain_tool: ExplainAllocationLogicTool) -> None:
@@ -480,6 +526,23 @@ def test_check_alloc_readiness_pf_e1_does_not_claim_ready(
     # And the top line must not be the green checkmark
     top_section = out[: out.find("##") if "##" in out else len(out)]
     assert "✅ Yes" not in top_section
+
+
+def test_check_alloc_readiness_pf_e1_blocks_on_missing_projected_sales(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    """Under the sales-basis weighting (now the workbook-observed method),
+    a missing avg_projected_sales_price for PF E1 must surface as a blocker
+    in the input checklist."""
+    out = check_alloc_tool.run(community="Parkway Fields", phase="E1")
+    # avg_projected_sales_price row must appear with state=missing
+    assert "avg_projected_sales_price" in out
+    # Find the row and verify it's flagged missing
+    row_idx = out.find("avg_projected_sales_price")
+    row_chunk = out[row_idx : row_idx + 220]
+    assert "**missing**" in row_chunk
+    # And run_readiness must not be ready
+    assert "`run_readiness`: `ready`" not in out
 
 
 def test_check_alloc_readiness_lh_blocked_by_aaj(
