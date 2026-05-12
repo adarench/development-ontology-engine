@@ -1,0 +1,194 @@
+{
+  "schema_version": "allocation_methods_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent C",
+  "source": {
+    "primary": "UCH_Home_DevCos_GL_Structure_Process_Guide_v4.docx",
+    "secondary": [
+      "UCH_Land_Lifecycle_Walkthrough_v2.pptx",
+      "Flagship Allocation Workbook v3 (CSV exports)"
+    ],
+    "doc_status": "originals not yet recovered into data/raw/process_docs/; methods authored from briefing extract."
+  },
+  "consumed_by_tools": [
+    "explain_allocation_logic",
+    "check_allocation_readiness",
+    "generate_per_lot_output",
+    "detect_accounting_events",
+    "query_bcp_dev_process"
+  ],
+  "depends_on": [
+    "account_prefix_matrix_v1.json",
+    "clickup_gl_event_map_v1.json"
+  ],
+  "ratification_legend": {
+    "ratified_true": "Method is source-owner sign-off complete; tools may compute and post.",
+    "ratified_false": "Method is documented but not approved; tools must refuse to compute and emit refusal_reason."
+  },
+  "methods": [
+    {
+      "rule_id": "ALLOC-001",
+      "method_id": "land_at_mda",
+      "name": "Land Allocation at MDA Execution",
+      "applies_to": {
+        "cost_type": "Land",
+        "scope": "phase",
+        "posting_account": "131-200",
+        "alloc_pair": "131-100→131-200 (initial), 131-200→131-300 (at pre-con), 131-300→131-010 (at lot sale)"
+      },
+      "trigger_event": "mda_execution",
+      "trigger_event_secondary": ["pre_con", "lot_sale"],
+      "inputs_required": [
+        {"input": "raw_land_basis_per_property", "system": "qbd_131-100", "type": "currency_usd"},
+        {"input": "lot_count_at_mda", "system": "mda_doc", "type": "int"},
+        {"input": "lot_count_in_phase", "system": "clickup_phase_task", "type": "int"},
+        {"input": "lot_count_total_property", "system": "clickup_aggregate_or_workbook", "type": "int"},
+        {"input": "lot_type_mix", "system": "clickup", "type": "dict[lot_type→int]"}
+      ],
+      "calculation": {
+        "phase_share_usd": "raw_land_basis_per_property * (lot_count_in_phase / lot_count_total_property)",
+        "per_lot_share_usd": "phase_share_usd / lot_count_in_phase",
+        "weighting_note": "Briefing describes lot-count weighting. If lot-type weighting (SFR vs TH vs MF basis differential) is later required, it lives in a v2 method, not here."
+      },
+      "hard_gates": ["mda_day_lot_count_check"],
+      "ratified": true,
+      "verification_status": "source_doc_extracted",
+      "verification_note": "Confirmed in briefing as the canonical land allocation pattern."
+    },
+    {
+      "rule_id": "ALLOC-002",
+      "method_id": "water_by_letter",
+      "name": "Water Allocation per Water Requirement Letter",
+      "applies_to": {
+        "cost_type": "Water",
+        "scope": "phase",
+        "posting_account": "132-700",
+        "alloc_pair": "132-700↔132-710"
+      },
+      "trigger_event": "water_letter_received",
+      "trigger_event_secondary": ["pre_con", "lot_sale"],
+      "inputs_required": [
+        {"input": "water_letter_units_phase", "system": "water_letter", "type": "int_or_decimal"},
+        {"input": "water_letter_units_total", "system": "water_letter_or_workbook", "type": "int_or_decimal"},
+        {"input": "water_pool_usd", "system": "qbd_132-700", "type": "currency_usd"},
+        {"input": "phase_lot_count", "system": "clickup_phase_task", "type": "int"}
+      ],
+      "calculation": {
+        "phase_share_usd": "water_pool_usd * (water_letter_units_phase / water_letter_units_total)",
+        "per_lot_share_usd": "phase_share_usd / phase_lot_count"
+      },
+      "ratified": true,
+      "verification_status": "inferred_from_briefing",
+      "verification_note": "Briefing describes water allocating 'by letter' — interpreted as ratio of phase units to total units. Exact unit definition (acre-feet, taps, ERUs?) needs confirmation."
+    },
+    {
+      "rule_id": "ALLOC-003",
+      "method_id": "direct_per_phase",
+      "name": "Direct Cost Allocation per Phase",
+      "applies_to": {
+        "cost_type": "Direct",
+        "scope": "phase",
+        "posting_account": "132-500",
+        "alloc_pair": "132-500↔132-510"
+      },
+      "trigger_event": "ongoing",
+      "trigger_event_secondary": ["lot_sale"],
+      "inputs_required": [
+        {"input": "direct_cost_pool_usd_phase", "system": "qbd_132-500_by_DIR_job", "type": "currency_usd"},
+        {"input": "phase_lot_count", "system": "clickup_phase_task", "type": "int"}
+      ],
+      "calculation": {
+        "per_lot_share_usd": "direct_cost_pool_usd_phase / phase_lot_count",
+        "weighting_note": "Equal-weight per lot within phase per briefing. Lot-type cost differential (e.g., SFR vs TH foundation cost) is not modeled in v0.2."
+      },
+      "ratified": true,
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ALLOC-004",
+      "method_id": "indirect_community",
+      "name": "Indirect Cost Allocation across Community by Sales Basis",
+      "applies_to": {
+        "cost_type": "Indirect",
+        "scope": "community",
+        "posting_account": "132-600",
+        "alloc_pair": "132-600↔132-610"
+      },
+      "trigger_event": "ongoing",
+      "trigger_event_secondary": ["lot_sale"],
+      "inputs_required": [
+        {"input": "indirect_pool_usd_community", "system": "qbd_132-600_by_IND_job", "type": "currency_usd"},
+        {"input": "sales_basis_pct_per_phase", "system": "allocation_workbook_engine_sheet", "type": "decimal_pct", "fallback": "lot_count_pct_per_phase"},
+        {"input": "lot_count_per_phase", "system": "clickup_phase_task", "type": "int", "fallback_for": "sales_basis_pct_per_phase"},
+        {"input": "phase_lot_count", "system": "clickup_phase_task", "type": "int"}
+      ],
+      "calculation": {
+        "phase_share_usd_primary": "indirect_pool_usd_community * sales_basis_pct_per_phase",
+        "phase_share_usd_fallback": "indirect_pool_usd_community * (lot_count_per_phase / sum(lot_count_per_phase across community))",
+        "per_lot_share_usd": "phase_share_usd / phase_lot_count"
+      },
+      "ratified": true,
+      "verification_status": "inferred_from_briefing",
+      "verification_note": "Briefing notes 'sales_basis_pct OR lot_count_pct' — sales basis is preferred per Flagship workbook v3 pattern. Open question: does the choice of weighting need to be ratified per community?"
+    },
+    {
+      "rule_id": "ALLOC-005",
+      "method_id": "warranty_at_sale",
+      "name": "Warranty Accrual at Lot Sale",
+      "applies_to": {
+        "cost_type": "Warranty",
+        "scope": "lot",
+        "posting_account": "240-102",
+        "alloc_pair": "240-102↔240-112"
+      },
+      "trigger_event": "lot_sale",
+      "inputs_required": [
+        {"input": "warranty_rate", "system": "process_rule_or_workbook", "type": "decimal_pct"},
+        {"input": "transfer_value_usd", "system": "clickup", "type": "currency_usd", "field_for_sih": "FMV at Transfer", "field_for_3rdy": "Sale Price"}
+      ],
+      "calculation": {
+        "warranty_accrual_usd": "transfer_value_usd * warranty_rate"
+      },
+      "ratified": true,
+      "verification_status": "inferred_from_briefing",
+      "verification_note": "Default warranty rate not given in briefing. Open question: is the rate global, per DevCo, or per community?"
+    },
+    {
+      "rule_id": "ALLOC-006",
+      "method_id": "range_row_unratified",
+      "name": "Range-Row / Shell Allocation (UNRATIFIED — refuse)",
+      "applies_to": {
+        "cost_type": "shell_range_row",
+        "scope": "project_phase",
+        "posting_account": "n/a"
+      },
+      "trigger_event": null,
+      "inputs_required": [],
+      "calculation": {
+        "rule": "DO NOT ALLOCATE",
+        "reason": "Method not ratified by source owner. Holds approximately $45.75M / 4,020 rows at project+phase grain. Splitting to per-lot grain without source-owner sign-off would fabricate confidence."
+      },
+      "ratified": false,
+      "refusal_reason": "Range-row allocation method is unratified. Pending source-owner Q6 sign-off before tools may compute per-lot allocations for range rows.",
+      "verification_status": "source_doc_extracted",
+      "verification_note": "v2.1 BCPD operating-state work explicitly held this at project+phase grain. v0.2 inherits the same hold."
+    }
+  ],
+  "method_event_matrix": {
+    "description": "Quick lookup of which methods fire at which event.",
+    "rows": [
+      {"event_id": "mda_execution", "methods": ["land_at_mda"]},
+      {"event_id": "pre_con", "methods": []},
+      {"event_id": "water_letter_received", "methods": ["water_by_letter"]},
+      {"event_id": "lot_sale_sih", "methods": ["land_at_mda", "direct_per_phase", "indirect_community", "water_by_letter", "warranty_at_sale"]},
+      {"event_id": "lot_sale_3rdy", "methods": ["land_at_mda", "direct_per_phase", "indirect_community", "water_by_letter", "warranty_at_sale"]}
+    ]
+  },
+  "open_questions": [
+    "Default warranty rate value and scope (global vs DevCo vs community).",
+    "Water unit definition (acre-feet vs taps vs ERUs vs raw count).",
+    "Whether indirect allocation must use sales_basis or may fall back to lot_count without explicit per-community ratification.",
+    "Whether MPL (Master Planning) has its own allocation method or rolls into Indirect.",
+    "Whether lot-type weighting (SFR vs TH vs MF) modifies the equal-weight assumption in direct_per_phase."
+  ]
+}

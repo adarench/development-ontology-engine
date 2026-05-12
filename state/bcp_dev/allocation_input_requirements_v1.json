@@ -1,0 +1,408 @@
+{
+  "schema_version": "allocation_input_requirements_v1",
+  "generated_at": "2026-05-11",
+  "generated_by": "Agent B (BCP Dev v0.2)",
+  "purpose": "Per-(community, phase) checklist of inputs that must be present and valid before Per-Lot Output can be computed. Drives check_allocation_readiness. No computation is performed by tools reading this file — they only emit ready/missing/stale checklists.",
+
+  "input_categories": [
+    "lot_inventory",
+    "pricing",
+    "direct_budget",
+    "land_pool",
+    "indirect_pool",
+    "water_allocation",
+    "warranty_rate",
+    "qbd_actuals",
+    "crosswalk_resolved",
+    "process_gates"
+  ],
+
+  "global_required_inputs": [
+    {
+      "input_id": "lot_count_lotdata",
+      "category": "lot_inventory",
+      "field_path": "Lot Mix & Pricing.Lots (LotData)",
+      "grain": "phase_x_lot_type",
+      "source_system_authoritative": "landdev",
+      "source_system_observed_today": "landdev (pre-populated in workbook)",
+      "blocking": true,
+      "default_status_today": "present_for_all_observed_phases",
+      "confidence": "high"
+    },
+    {
+      "input_id": "lot_count_manual_tieout",
+      "category": "lot_inventory",
+      "field_path": "Lot Mix & Pricing.Lots (Manual Input)",
+      "grain": "phase_x_lot_type",
+      "source_system_authoritative": "manual_validated_by_land",
+      "blocking": true,
+      "default_status_today": "MISSING_for_all_observed_phases",
+      "confidence": "low",
+      "note": "Tie-Out check requires this column populated; today it masks the check by being empty."
+    },
+    {
+      "input_id": "lot_count_clickup",
+      "category": "lot_inventory",
+      "field_path": "ClickUp.Lot tasks count by phase x lot_type",
+      "grain": "phase_x_lot_type",
+      "source_system_authoritative": "clickup",
+      "blocking": true,
+      "default_status_today": "needs_clickup_pull",
+      "confidence": "medium",
+      "hard_gate": "mda_day_lot_count_check (must equal LotData and Manual Input)"
+    },
+    {
+      "input_id": "avg_projected_sales_price",
+      "category": "pricing",
+      "field_path": "Lot Mix & Pricing.Avg Projected Sales Price",
+      "grain": "phase_x_lot_type",
+      "source_system_authoritative": "manual_input_from_pricing_team_or_clickup",
+      "blocking": true,
+      "default_status_today": "MISSING_for_all_observed_phases_in_master",
+      "confidence": "low",
+      "note": "Master Flagship v3 has zero pricing populated. Satellite PF tab has prices for B2/D1/D2/E1/E2/F/G1/G2/H. Satellite LH tab has assumed prices ($150K SFR, $110K TH, $80K MF, $5.7M Comm)."
+    },
+    {
+      "input_id": "direct_budget_landdev",
+      "category": "direct_budget",
+      "field_path": "Per-Lot Output.Direct Budget (LandDev)",
+      "grain": "phase",
+      "source_system_authoritative": "landdev",
+      "blocking": true,
+      "default_status_today": "present_for_~50%_of_phases",
+      "phases_with_value_in_master": ["AS 1-3", "AS 4-6", "BL PH 2A", "BL PH 2B", "BL PH 2D", "Harmony A13", "Harmony A14", "Harmony B1", "Harmony B2", "Lewis Estates1", "PF E1", "PF E2", "PF G2", "SF B", "SR 02 Phase", "SR 03 Phase", "WC Phase 1", "WC Phase 2", "WC Phase 3"],
+      "confidence": "high_when_present"
+    },
+    {
+      "input_id": "indirect_pool_budget",
+      "category": "indirect_pool",
+      "field_path": "Indirect & Land Pools (Type=INDIRECT)",
+      "grain": "community",
+      "source_system_authoritative": "landdev",
+      "blocking": true,
+      "default_status_today": "present_for_communities_with_active_indirects",
+      "communities_with_pool_in_master": ["Arrowhead Springs ($12.92M)", "Ben Lomond ($13.03M)", "Eagle Vista ($8.50M)", "Harmony ($3.49M)", "Parkway Fields ($3.62M)", "Salem Fields ($4.34M)"],
+      "confidence": "high"
+    },
+    {
+      "input_id": "land_pool_budget",
+      "category": "land_pool",
+      "field_path": "Indirect & Land Pools (Type=LAND)",
+      "grain": "community",
+      "source_system_authoritative": "landdev",
+      "blocking": true,
+      "default_status_today": "sparse",
+      "communities_with_pool_in_master": ["Anderson Geneva ($19.95M total across 7 jobs)", "Harmony ($41,388 — 1-Harmony Overall job only)", "Woolstead ($9.0M)", "BCP Development ($10K)"],
+      "confidence": "high_when_present",
+      "gap_signal": "Communities like Parkway Fields and Lomond Heights show $0 land pool in master but have land basis in their satellite (PF Ault Ground $24.96M; LH Ben Lomond 116.39 acres $34.37M). Land pool entries exist outside master."
+    },
+    {
+      "input_id": "water_allocation_letter",
+      "category": "water_allocation",
+      "field_path": "Indirect Pool entry 'Ault Water' or 'Salem Water Tank' or PF tab Water column",
+      "grain": "phase",
+      "source_system_authoritative": "water_letter_from_municipality",
+      "blocking": false,
+      "blocking_for_phases_requiring_water": true,
+      "default_status_today": "satellite_only",
+      "note": "Master Flagship v3 has no water columns. Method allocation_methods_v1.water_by_letter applies."
+    },
+    {
+      "input_id": "warranty_rate",
+      "category": "warranty_rate",
+      "field_path": "process_rules / per-community policy",
+      "grain": "lot_sale",
+      "source_system_authoritative": "process_rules",
+      "blocking": false,
+      "default_status_today": "implicit_in_satellite_cost_breakouts",
+      "note": "Computed at lot sale event per allocation_methods_v1.warranty_at_sale."
+    },
+    {
+      "input_id": "qbd_actuals_plj",
+      "category": "qbd_actuals",
+      "field_path": "PLJ tab — Actuals by job",
+      "grain": "qbd_job",
+      "source_system_authoritative": "quickbooks_desktop",
+      "blocking": false,
+      "blocking_for_post_allocation_check": true,
+      "default_status_today": "stale_or_embedded_only",
+      "note": "Authoritative BCPDev PLJ 2026.03.31 not in repo. Satellite PLJ embeds are slice copies."
+    },
+    {
+      "input_id": "qbd_actuals_bsj",
+      "category": "qbd_actuals",
+      "field_path": "BSJ tab — Inventory Asset 12100 by job",
+      "grain": "qbd_job",
+      "source_system_authoritative": "quickbooks_desktop",
+      "blocking": false,
+      "default_status_today": "satellite_only"
+    },
+    {
+      "input_id": "qbd_actuals_gl",
+      "category": "qbd_actuals",
+      "field_path": "QBGL Actuals column on satellite Budgeting section",
+      "grain": "qbd_job_x_account",
+      "source_system_authoritative": "quickbooks_desktop_gl_export",
+      "blocking": false,
+      "default_status_today": "embedded_in_satellite_only"
+    },
+    {
+      "input_id": "qbd_job_directory",
+      "category": "qbd_actuals",
+      "field_path": "JCSList tab",
+      "grain": "qbd_job",
+      "source_system_authoritative": "quickbooks_desktop_jcs_export",
+      "blocking": true,
+      "blocking_reason": "Without job directory + ITD Actuals + Curr/Adj Budget per job, the Budgeting section cannot resolve the Base column.",
+      "default_status_today": "present (LH and PF satellites carry identical lookup table)"
+    },
+    {
+      "input_id": "crosswalk_clickup_to_qbd_customer",
+      "category": "crosswalk_resolved",
+      "field_path": "state/bcp_dev/source_crosswalks_v1.json:clickup_subdivision_to_qbd_customer",
+      "grain": "community",
+      "source_system_authoritative": "hand_authored",
+      "blocking": true,
+      "default_status_today": "to_be_authored_by_agent_d"
+    },
+    {
+      "input_id": "crosswalk_phase_to_qbd_job",
+      "category": "crosswalk_resolved",
+      "field_path": "state/bcp_dev/source_crosswalks_v1.json:phase_to_qbd_job",
+      "grain": "phase",
+      "source_system_authoritative": "hand_authored",
+      "blocking": true,
+      "current_observation": "JCSList has 'Mapping needed' literal in the Phase or QB Job column for many rows — those phases cannot resolve without crosswalk."
+    },
+    {
+      "input_id": "mda_day_lot_count_check",
+      "category": "process_gates",
+      "field_path": "process_rules:status_taxonomy_v1 / mda_day_check",
+      "grain": "phase",
+      "source_system_authoritative": "three_way_join (clickup_lot_count, mda_lot_count, workbook_lot_count)",
+      "blocking": true,
+      "blocking_reason": "Hard gate per CLAUDE.md and project plan. Must pass before allocation may run.",
+      "default_status_today": "two_of_three_typically_available — workbook + landdev; clickup_count needs ClickUp pull"
+    }
+  ],
+
+  "per_community_phase_requirements": [
+    {
+      "community": "Parkway Fields",
+      "phases": [
+        {
+          "phase": "B2",
+          "lot_types": ["SFR (72)", "SFR (51)"],
+          "section": "previous_sales_allocations",
+          "compute_action": "do_not_recompute",
+          "reason": "Already allocated; Comments column on satellite shows 'Closed'."
+        },
+        {
+          "phase": "D1",
+          "lot_types": ["SFR (127)", "SFR (31)"],
+          "section": "previous_sales_allocations",
+          "compute_action": "do_not_recompute",
+          "reason": "Already allocated; 'Closed' on satellite."
+        },
+        {
+          "phase": "D2",
+          "lot_types": ["SFR (30 Lennar)", "SFR (52)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready",
+          "required_inputs_present": ["lot_count_lotdata", "avg_projected_sales_price ($148,826.59 / $120,000)", "direct_budget_landdev (Base $6,270,971.47)", "land_pool", "indirect_pool"],
+          "required_inputs_missing": ["lot_count_manual_tieout", "lot_count_clickup", "mda_day_lot_count_check"]
+        },
+        {
+          "phase": "E1",
+          "lot_types": ["SFR (173 Lennar)", "SFR (25)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready",
+          "required_inputs_present": ["lot_count_lotdata", "avg_projected_sales_price", "direct_budget_landdev (Base $15,579,985.58)"]
+        },
+        {
+          "phase": "E2",
+          "lot_types": ["SFR (76)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready_with_caveat",
+          "caveat": "Direct budget Base is estimated at $60K/lot ($4,560,000) per Comments — confidence medium."
+        },
+        {
+          "phase": "F",
+          "lot_types": ["SFR (61)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready_with_caveat",
+          "caveat": "Direct budget Base estimated at $60K/lot ($3,660,000) per Comments."
+        },
+        {
+          "phase": "G1",
+          "lot_types": ["SFR (63)", "Comm (1)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready_with_caveat",
+          "caveat": "Direct budget estimated at $60K/lot + $300K commercial. Church already allocated in previous section."
+        },
+        {
+          "phase": "G2",
+          "lot_types": ["SFR (145)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready_with_caveat",
+          "caveat": "Direct budget estimated at $60K/lot ($8,700,000)."
+        },
+        {
+          "phase": "H",
+          "lot_types": ["SFR (248)"],
+          "section": "remaining_sales_allocations",
+          "compute_action": "compute_ready_with_caveat",
+          "caveat": "Direct budget estimated at $60K/lot ($14,880,000)."
+        },
+        {
+          "phase": "A1 / A2.1 / A2.2 / A2.3 / B1 / C1 / C2 / D2 (other lot types)",
+          "lot_types": ["SFR / TH"],
+          "section": "not_in_satellite",
+          "compute_action": "spec_only",
+          "blockers": ["Not present in PF satellite tab as of 2025-10-31. Likely future phases."]
+        }
+      ]
+    },
+    {
+      "community": "Lomond Heights (Ben Lomond)",
+      "phases": [
+        {
+          "phase": "1",
+          "lot_types": ["Open"],
+          "compute_action": "no_action",
+          "reason": "Lots = 0; Open status."
+        },
+        {
+          "phase": "2A",
+          "lot_types": ["SFR (71)", "TH (44)"],
+          "compute_action": "blocked",
+          "blockers": ["#ERROR! in satellite Indirects total cascading from AAJ Capitalized Interest #ERROR!", "Indirect Allocated returns #ERROR!"],
+          "inputs_present": ["assumed_price_lot $150K SFR / $110K TH", "direct_budget Base $11,282,255.22 (LD Budget + $500k Landmark)", "land_pool $34,366,568.45 raw"],
+          "inputs_missing": ["working indirect formula"]
+        },
+        {
+          "phase": "2B",
+          "lot_types": ["SFR (136)", "TH (21)"],
+          "compute_action": "blocked",
+          "blockers": ["Same #ERROR! cascade"],
+          "inputs_present": ["price_lot", "direct_budget Base $7,313,720"]
+        },
+        {
+          "phase": "2C",
+          "lot_types": ["SFR (46)", "TH (85)"],
+          "compute_action": "blocked",
+          "blockers": ["Same #ERROR! cascade"],
+          "inputs_present": ["price_lot", "direct_budget Base $5,895,000 estimated at $45K/lot"]
+        },
+        {
+          "phase": "2D",
+          "lot_types": ["SFR (136)"],
+          "compute_action": "blocked",
+          "blockers": ["Same #ERROR! cascade"],
+          "inputs_present": ["price_lot", "direct_budget Base $7,892,424.88 LD Budget"]
+        },
+        {
+          "phase": "3-Comm",
+          "lot_types": ["Comm (1)"],
+          "compute_action": "blocked",
+          "blockers": ["Same #ERROR! cascade"],
+          "inputs_present": ["price $5.7M (380K sqft * $15)", "direct_budget Base $1.5M"]
+        },
+        {
+          "phase": "4",
+          "lot_types": ["Open"],
+          "compute_action": "no_action"
+        },
+        {
+          "phase": "5",
+          "lot_types": ["MF (96)"],
+          "compute_action": "blocked",
+          "blockers": ["Same #ERROR! cascade"],
+          "inputs_present": ["price $80K", "direct_budget Base $3.36M estimated at $35K/lot"]
+        },
+        {
+          "phase": "6A / 6B / 6C",
+          "lot_types": ["SFR"],
+          "compute_action": "blocked",
+          "blockers": ["Same #ERROR! cascade"],
+          "inputs_present": ["price $150K", "direct_budget Base $200K / $450K / $700K estimated at $50K/lot"]
+        }
+      ],
+      "blockers_summary": ["Resolve AAJ Capitalized Interest #ERROR! (effective rate calc fails on 30/360 day count or rate field).", "Re-validate Indirects pool sum once interest resolves.", "Re-validate Sales/Margin formula chain once Indirects resolve."]
+    },
+    {
+      "community": "Arrowhead Springs",
+      "compute_action": "spec_only",
+      "blockers": ["No avg_projected_sales_price in master Lot Mix & Pricing", "AS 1-3 / AS 4-6 phases trigger range_row_unratified — cannot allocate range-row method", "No satellite workbook present for AS"],
+      "phases_observed": 23,
+      "lot_count_total": 1458,
+      "indirect_pool_present": true,
+      "land_pool_present": false
+    },
+    {
+      "community": "Harmony",
+      "compute_action": "spec_only",
+      "blockers": ["No avg_projected_sales_price in master", "PLJ embedded in LH workbook is unverified slice — needs canonical BCPDev PLJ pull", "B1, B2 are 3-tuple (community, phase, lot) communities — must use 3-tuple join discipline per CLAUDE.md"],
+      "phases_observed": 14,
+      "lot_count_total": 733,
+      "land_pool_present": true,
+      "land_pool_value": "$41,388 (Harmony Overall only)"
+    },
+    {
+      "community": "Salem Fields",
+      "compute_action": "spec_only",
+      "blockers": ["No avg_projected_sales_price in master", "BSJ embed in LH workbook is the only inventory asset visible — needs canonical Salem BSJ pull", "Direct budget present for SF B (SFR row only — TH row blank)"]
+    },
+    {
+      "community": "Scarlet Ridge",
+      "compute_action": "spec_only",
+      "blockers": ["No avg_projected_sales_price", "No indirect or land pool present in master"]
+    },
+    {
+      "community": "Willowcreek",
+      "compute_action": "spec_only",
+      "blockers": ["No avg_projected_sales_price", "Direct budget present for all 3 phases"]
+    },
+    {
+      "community": "Lewis Estates",
+      "compute_action": "spec_only",
+      "blockers": ["No avg_projected_sales_price", "No indirect or land pool"]
+    },
+    {
+      "community": "Eagle Vista",
+      "compute_action": "out_of_master_scope",
+      "note": "Has indirect pool entries ($8.5M Mountain Green Mass Grading + EV Initial Earthwork) but is not represented in Lot Mix & Pricing or Allocation Engine of the master. Add to master before allocation."
+    }
+  ],
+
+  "compute_policy_v0_2": {
+    "default": "spec_and_readiness_for_all",
+    "compute_only_when": [
+      "All required_inputs_present is satisfied AND",
+      "method is ratified in process_rules:allocation_methods_v1 AND",
+      "mda_day_lot_count_check has passed (or two-of-three with caveat) AND",
+      "phase is not in a range_row category"
+    ],
+    "do_not_allocate": [
+      "range_row phases (Arrowhead Springs AS 1-3, AS 4-6 buckets and any future range rows)",
+      "shell rows where Lot Type = Open",
+      "Comm or Church rows when no commercial pricing source is supplied",
+      "any phase where mda_day_lot_count_check fails"
+    ],
+    "do_not_invent": [
+      "Estimated direct budgets (the $60K/lot, $50K/lot, $35K/lot estimates in PF and LH satellites) MUST carry their satellite Comment as caveat in any computed output. Tools must not silently propagate them as if landdev-authoritative."
+    ]
+  },
+
+  "readiness_status_vocabulary": {
+    "compute_ready": "All required inputs present, method ratified, gates passed. Tool may compute deterministically.",
+    "compute_ready_with_caveat": "Inputs present but at least one input is an estimate (per satellite Comments). Output must carry caveat.",
+    "blocked": "One or more required inputs missing OR workbook in error state. Tool returns checklist with missing items, not a computed output.",
+    "spec_only": "Compute is not in scope for v0.2 for this phase/community — return canonical spec from per_lot_output_schema_v1 instead.",
+    "out_of_master_scope": "Phase exists in satellite or pool sheets but is missing from master. Surface as a master-extension request."
+  },
+
+  "version_history": [
+    {"version": "v1", "date": "2026-05-11", "author": "Agent B", "notes": "Initial input requirements from Flagship v3 + LH/PF satellite 2025.10."}
+  ]
+}

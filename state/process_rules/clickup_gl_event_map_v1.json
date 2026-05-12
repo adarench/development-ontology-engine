@@ -1,0 +1,359 @@
+{
+  "schema_version": "clickup_gl_event_map_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent C",
+  "source": {
+    "primary": "UCH_Home_DevCos_GL_Structure_Process_Guide_v4.docx",
+    "secondary": [
+      "UCH_Home_DevCos_ClickUp_Lifecycle_Tracking_Guide_v2.docx",
+      "UCH_Land_Lifecycle_Walkthrough_v2.pptx"
+    ],
+    "doc_status": "originals not yet recovered into data/raw/process_docs/; events authored from briefing extract."
+  },
+  "consumed_by_tools": [
+    "detect_accounting_events",
+    "query_bcp_dev_process",
+    "explain_allocation_logic"
+  ],
+  "depends_on": [
+    "status_taxonomy_v1.json",
+    "account_prefix_matrix_v1.json",
+    "allocation_methods_v1.json"
+  ],
+  "scope": {
+    "applies_to": "BCP Dev / DevCo GL only",
+    "out_of_scope": "BCP / Flagship homebuilder vertical-construction GL; QBD entries on the homebuilder side"
+  },
+  "events": [
+    {
+      "rule_id": "EVENT-001",
+      "event_id": "closing",
+      "name": "Property Closing",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "LND_RAW_LAND",
+        "status_change_from": [null, "PRE_CLOSING_PIPELINE"],
+        "required_status_label": "(LND) RAW LAND"
+      },
+      "required_inputs": [
+        {"field": "Closing Date", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "QBD Customer", "system": "qbd_or_crosswalk", "blocks_event_if_missing": true},
+        {"field": "Closing Disbursement Amount", "system": "qbd_je_or_settlement_statement", "blocks_event_if_missing": true},
+        {"field": "Property Name", "system": "clickup", "blocks_event_if_missing": true}
+      ],
+      "side_effects": {
+        "creates_clickup": ["Property task"],
+        "creates_qbd": ["Customer record", "LND-Overall job"]
+      },
+      "gl_entries": [
+        {
+          "entry_id": "closing.JE1",
+          "debit_account": "131-100",
+          "debit_account_name": "Raw Land",
+          "credit_account_options": ["cash_clearing", "145-100"],
+          "credit_note": "If EMD posted earlier to 145-100, credit 145-100 to release deposit; otherwise credit cash clearing.",
+          "amount_source": "Closing Disbursement Amount",
+          "valid_job_prefix": "LND"
+        }
+      ],
+      "hard_gates": [],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "EVENT-002",
+      "event_id": "mda_execution",
+      "name": "MDA Execution (Master Development Agreement)",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "LND_ENTITLED",
+        "status_change_from": ["LND_RAW_LAND"],
+        "required_status_label": "(LND) ENTITLED"
+      },
+      "required_inputs": [
+        {"field": "MDA Execution Date", "system": "clickup_or_mda_doc", "blocks_event_if_missing": true},
+        {"field": "Phase Identifier", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Lot Count by Type (SFR/TH/MF/Comm)", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "MDA Lot Count", "system": "mda_document", "blocks_event_if_missing": true},
+        {"field": "Allocation Workbook Lot Count", "system": "allocation_workbook", "blocks_event_if_missing": true},
+        {"field": "Raw Land Basis (per Property)", "system": "qbd_131-100_balance", "blocks_event_if_missing": true}
+      ],
+      "side_effects": {
+        "creates_clickup": ["Phase task(s)", "Lot task(s)"],
+        "creates_qbd": ["LND-Phase job(s)"]
+      },
+      "gl_entries": [
+        {
+          "entry_id": "mda_execution.JE1",
+          "debit_account": "131-200",
+          "debit_account_name": "Entitled Land",
+          "credit_account": "131-100",
+          "credit_account_name": "Raw Land",
+          "amount_source": "land_at_mda_allocation",
+          "amount_calculation_ref": "allocation_methods_v1.json#land_at_mda",
+          "valid_job_prefix": "LND",
+          "scope": "per phase"
+        }
+      ],
+      "hard_gates": [
+        {
+          "gate_id": "mda_day_lot_count_check",
+          "description": "ClickUp lot count, MDA document lot count, and Allocation Workbook lot count must all match before JE posts.",
+          "rule": "clickup_lot_count == mda_lot_count == workbook_lot_count",
+          "on_partial": "Surface 'two of three counts available' caveat; do not post; flag for source-owner reconciliation.",
+          "on_fail": "Refuse JE post; emit reconciliation packet."
+        }
+      ],
+      "verification_status": "source_doc_extracted",
+      "verification_note": "MDA Day three-count gate confirmed in briefing as the canonical hard control."
+    },
+    {
+      "rule_id": "EVENT-003",
+      "event_id": "pre_con",
+      "name": "Pre-Construction Meeting",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "LND_DEVELOPING",
+        "status_change_from": ["LND_ENTITLED"],
+        "required_status_label": "(LND) DEVELOPING"
+      },
+      "required_inputs": [
+        {"field": "Pre-Con Meeting Date", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Phase Identifier", "system": "clickup", "blocks_event_if_missing": true}
+      ],
+      "side_effects": {
+        "opens_cost_pools": ["DIR (per phase)", "WTR (per phase)", "IND (community)"]
+      },
+      "gl_entries": [
+        {
+          "entry_id": "pre_con.JE1",
+          "debit_account": "131-300",
+          "debit_account_name": "WIP Land",
+          "credit_account": "131-200",
+          "credit_account_name": "Entitled Land",
+          "amount_source": "entitled_land_carryover",
+          "amount_note": "Move full entitled land basis for the phase from 131-200 to 131-300.",
+          "valid_job_prefix": "LND",
+          "scope": "per phase"
+        }
+      ],
+      "hard_gates": [],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "EVENT-004",
+      "event_id": "water_letter_received",
+      "name": "Water Requirement Letter Received",
+      "trigger": {
+        "source_system": "operational_doc",
+        "trigger_doc": "Water Requirement Letter",
+        "associated_clickup_status": "LND_DEVELOPING",
+        "fires_independently_of_status": true
+      },
+      "required_inputs": [
+        {"field": "Water Letter Received Date", "system": "clickup_or_doc", "blocks_event_if_missing": true},
+        {"field": "Water Letter Units (per phase)", "system": "water_letter", "blocks_event_if_missing": true},
+        {"field": "Total Water Units (community)", "system": "water_letter_or_workbook", "blocks_event_if_missing": true}
+      ],
+      "gl_entries": [
+        {
+          "entry_id": "water_letter.JE1",
+          "debit_account": "131-300",
+          "debit_account_name": "WIP Land",
+          "credit_account": "132-700",
+          "credit_account_name": "Water — Posting",
+          "amount_source": "water_by_letter_allocation",
+          "amount_calculation_ref": "allocation_methods_v1.json#water_by_letter",
+          "valid_job_prefix": "WTR",
+          "scope": "per phase",
+          "note": "Per briefing: water allocates by letter ratio (phase_units / total_units). Posting/Alloc pairing handled at lot sale."
+        }
+      ],
+      "hard_gates": [],
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Exact JE direction and timing for water-letter event needs confirmation in GL Process Guide. Briefing gives the allocation method but is silent on whether the JE posts at letter receipt or accumulates and posts at lot sale."
+    },
+    {
+      "rule_id": "EVENT-005",
+      "event_id": "final_plat",
+      "name": "Final Plat Recorded",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "LND_RECORDED_NOT_SOLD",
+        "status_change_from": ["LND_DEVELOPING"],
+        "required_status_label": "(LND) RECORDED - NOT SOLD"
+      },
+      "required_inputs": [
+        {"field": "Final Plat Recorded Date", "system": "clickup_or_county", "blocks_event_if_missing": true}
+      ],
+      "gl_entries": [],
+      "tracking_only": true,
+      "hard_gates": [],
+      "verification_status": "inferred_from_briefing",
+      "verification_note": "Briefing confirms no GL entry at final plat — tracking event only."
+    },
+    {
+      "rule_id": "EVENT-006",
+      "event_id": "lot_sale_sih",
+      "name": "Lot Sale — Sold In-House (SIH)",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "LND_RECORDED_SIH",
+        "status_change_from": ["LND_RECORDED_NOT_SOLD"],
+        "required_status_label": "(LND) RECORDED - SIH"
+      },
+      "lot_sale_path": "SIH",
+      "required_inputs": [
+        {"field": "FMV at Transfer", "system": "clickup_or_transfer_doc", "blocks_event_if_missing": true},
+        {"field": "Sale Counterparty Name", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Sale Counterparty Type", "system": "clickup", "blocks_event_if_missing": true, "expected_value": "internal_homebuilder"},
+        {"field": "Sale Date", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Allocated Land Cost (lot share)", "system": "computed_per_phase_share", "blocks_event_if_missing": true},
+        {"field": "Allocated Direct Cost (lot share)", "system": "computed_per_phase_share", "blocks_event_if_missing": true},
+        {"field": "Allocated Indirect Cost (lot share)", "system": "computed_per_community_share", "blocks_event_if_missing": true},
+        {"field": "Allocated Water Cost (lot share)", "system": "computed_per_letter", "blocks_event_if_missing": false, "blocks_note": "Allowed to be $0 if no water letter; not the same as missing."},
+        {"field": "Warranty Accrual Rate", "system": "process_rule_or_workbook", "blocks_event_if_missing": true}
+      ],
+      "gl_entries": [
+        {
+          "entry_id": "lot_sale_sih.JE_land",
+          "debit_account": "131-010",
+          "debit_account_name": "Land — Alloc",
+          "credit_account": "131-300",
+          "credit_account_name": "WIP Land",
+          "amount_source": "allocated_land_for_lot",
+          "valid_job_prefix": "LND"
+        },
+        {
+          "entry_id": "lot_sale_sih.JE_direct",
+          "debit_account": "132-510",
+          "debit_account_name": "Direct Cost — Alloc",
+          "credit_account": "132-500",
+          "credit_account_name": "Direct Cost — Posting",
+          "amount_source": "allocated_direct_for_lot",
+          "valid_job_prefix": "DIR"
+        },
+        {
+          "entry_id": "lot_sale_sih.JE_indirect",
+          "debit_account": "132-610",
+          "debit_account_name": "Indirect Cost — Alloc",
+          "credit_account": "132-600",
+          "credit_account_name": "Indirect Cost — Posting",
+          "amount_source": "allocated_indirect_for_lot",
+          "valid_job_prefix": "IND"
+        },
+        {
+          "entry_id": "lot_sale_sih.JE_water",
+          "debit_account": "132-710",
+          "debit_account_name": "Water — Alloc",
+          "credit_account": "132-700",
+          "credit_account_name": "Water — Posting",
+          "amount_source": "allocated_water_for_lot",
+          "valid_job_prefix": "WTR",
+          "conditional": "amount > 0"
+        },
+        {
+          "entry_id": "lot_sale_sih.JE_warranty",
+          "debit_account": "240-112",
+          "debit_account_name": "Warranty — Alloc",
+          "credit_account": "240-102",
+          "credit_account_name": "Warranty — Posting",
+          "amount_source": "fmv_at_transfer * warranty_rate",
+          "amount_calculation_ref": "allocation_methods_v1.json#warranty_at_sale",
+          "valid_job_prefix": "CPI"
+        },
+        {
+          "entry_id": "lot_sale_sih.JE_revenue_intercompany",
+          "debit_account_options": ["intercompany_receivable", "cash_clearing"],
+          "credit_account": "intercompany_revenue_or_transfer_clearing",
+          "amount_source": "FMV at Transfer",
+          "verification_status": "pending_source_doc_review",
+          "verification_note": "Intercompany revenue posting between DevCo and homebuilder is described in briefing as 'transfer at FMV' but exact account codes unconfirmed."
+        }
+      ],
+      "hard_gates": [],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "EVENT-007",
+      "event_id": "lot_sale_3rdy",
+      "name": "Lot Sale — Sold to Third Party (3RDY)",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "LND_RECORDED_SOLD_3RDY",
+        "status_change_from": ["LND_RECORDED_NOT_SOLD"],
+        "required_status_label": "(LND) RECORDED - SOLD 3RDY"
+      },
+      "lot_sale_path": "3RDY",
+      "required_inputs": [
+        {"field": "Sale Price", "system": "clickup_or_settlement_statement", "blocks_event_if_missing": true},
+        {"field": "Sale Counterparty Name", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Sale Counterparty Type", "system": "clickup", "blocks_event_if_missing": true, "expected_value": "third_party"},
+        {"field": "Sale Date", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Allocated Land Cost (lot share)", "system": "computed_per_phase_share", "blocks_event_if_missing": true},
+        {"field": "Allocated Direct Cost (lot share)", "system": "computed_per_phase_share", "blocks_event_if_missing": true},
+        {"field": "Allocated Indirect Cost (lot share)", "system": "computed_per_community_share", "blocks_event_if_missing": true},
+        {"field": "Allocated Water Cost (lot share)", "system": "computed_per_letter", "blocks_event_if_missing": false},
+        {"field": "Warranty Accrual Rate", "system": "process_rule_or_workbook", "blocks_event_if_missing": true}
+      ],
+      "gl_entries": [
+        {"entry_id": "lot_sale_3rdy.JE_land", "debit_account": "131-010", "credit_account": "131-300", "amount_source": "allocated_land_for_lot", "valid_job_prefix": "LND"},
+        {"entry_id": "lot_sale_3rdy.JE_direct", "debit_account": "132-510", "credit_account": "132-500", "amount_source": "allocated_direct_for_lot", "valid_job_prefix": "DIR"},
+        {"entry_id": "lot_sale_3rdy.JE_indirect", "debit_account": "132-610", "credit_account": "132-600", "amount_source": "allocated_indirect_for_lot", "valid_job_prefix": "IND"},
+        {"entry_id": "lot_sale_3rdy.JE_water", "debit_account": "132-710", "credit_account": "132-700", "amount_source": "allocated_water_for_lot", "valid_job_prefix": "WTR", "conditional": "amount > 0"},
+        {"entry_id": "lot_sale_3rdy.JE_warranty", "debit_account": "240-112", "credit_account": "240-102", "amount_source": "sale_price * warranty_rate", "amount_calculation_ref": "allocation_methods_v1.json#warranty_at_sale", "valid_job_prefix": "CPI"},
+        {
+          "entry_id": "lot_sale_3rdy.JE_revenue",
+          "debit_account_options": ["accounts_receivable", "cash_clearing"],
+          "credit_account": "land_sale_revenue",
+          "amount_source": "Sale Price",
+          "verification_status": "pending_source_doc_review",
+          "verification_note": "External revenue account code unconfirmed in briefing."
+        }
+      ],
+      "hard_gates": [],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "EVENT-008",
+      "event_id": "cancellation",
+      "name": "Cancellation / Reversal",
+      "trigger": {
+        "source_system": "clickup",
+        "status_change_to": "EXCEPTION_CANCELLED",
+        "status_change_from": "any"
+      },
+      "required_inputs": [
+        {"field": "Cancellation Date", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Cancellation Reason", "system": "clickup", "blocks_event_if_missing": true},
+        {"field": "Original Event Reference", "system": "computed", "blocks_event_if_missing": true}
+      ],
+      "gl_entries": [
+        {
+          "entry_id": "cancellation.JE_reversal",
+          "amount_source": "reversal_of_original_event",
+          "rule": "Reverse the most recent posted GL entry for the affected lot/phase. See exception_rules_v1.json#cancellation_handling.",
+          "valid_job_prefix": "any"
+        }
+      ],
+      "hard_gates": [
+        {
+          "gate_id": "cancellation_authorization",
+          "description": "Cancellation reversal must be authorized by Finance.",
+          "rule": "manual_authorization_required"
+        }
+      ],
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Cancellation handling not explicitly in briefing extract; rule is inferred. See exception_rules_v1.json."
+    }
+  ],
+  "events_summary_index": [
+    {"event_id": "closing", "fires_gl": true, "ratified": true},
+    {"event_id": "mda_execution", "fires_gl": true, "ratified": true, "has_hard_gate": true},
+    {"event_id": "pre_con", "fires_gl": true, "ratified": true},
+    {"event_id": "water_letter_received", "fires_gl": true, "ratified": false},
+    {"event_id": "final_plat", "fires_gl": false, "ratified": true},
+    {"event_id": "lot_sale_sih", "fires_gl": true, "ratified": true},
+    {"event_id": "lot_sale_3rdy", "fires_gl": true, "ratified": true},
+    {"event_id": "cancellation", "fires_gl": true, "ratified": false}
+  ]
+}

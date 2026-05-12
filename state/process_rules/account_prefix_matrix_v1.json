@@ -1,0 +1,238 @@
+{
+  "schema_version": "account_prefix_matrix_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent C",
+  "source": {
+    "primary": "UCH_Home_DevCos_GL_Structure_Process_Guide_v4.docx",
+    "doc_status": "originals not yet recovered into data/raw/process_docs/; extracted from briefing in docs/bcp_dev_process_ontology_v1.md"
+  },
+  "consumed_by_tools": [
+    "explain_allocation_logic",
+    "detect_accounting_events",
+    "validate_crosswalk_readiness",
+    "query_bcp_dev_process"
+  ],
+  "operating_principle": "Every dollar on the balance sheet should answer: what property is this for, and what stage is it in? The 8 posting accounts encode the stage; the job prefix encodes the cost type; the matrix is the validity control.",
+  "posting_accounts": [
+    {
+      "rule_id": "ACCT-P-001",
+      "code": "145-100",
+      "name": "Earnest Money Deposits",
+      "category": "asset",
+      "stage": "pre_closing",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["LND"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-P-002",
+      "code": "131-100",
+      "name": "Raw Land",
+      "category": "asset_inventory",
+      "stage": "closed_not_mda",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["LND"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-P-003",
+      "code": "131-200",
+      "name": "Entitled Land",
+      "category": "asset_inventory",
+      "stage": "mda_executed",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["LND"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-P-004",
+      "code": "131-300",
+      "name": "WIP Land",
+      "category": "asset_inventory",
+      "stage": "pre_con_onward",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["LND", "MPL", "IND", "DIR", "WTR", "CPI"],
+      "verification_status": "source_doc_extracted",
+      "verification_note": "131-300 is the catch-all WIP account that all six prefixes can hit per the briefing matrix."
+    },
+    {
+      "rule_id": "ACCT-P-005",
+      "code": "132-500",
+      "name": "Direct Cost — Posting",
+      "category": "asset_cost_pool",
+      "stage": "per_phase_direct",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["DIR"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-P-006",
+      "code": "132-600",
+      "name": "Indirect Cost — Posting",
+      "category": "asset_cost_pool",
+      "stage": "community_indirect",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["IND"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-P-007",
+      "code": "132-700",
+      "name": "Water — Posting",
+      "category": "asset_cost_pool",
+      "stage": "water_pool",
+      "side_normal_balance": "debit",
+      "valid_prefixes": ["WTR"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-P-008",
+      "code": "240-102",
+      "name": "Warranty — Posting",
+      "category": "liability_accrual",
+      "stage": "warranty_accrual",
+      "side_normal_balance": "credit",
+      "valid_prefixes": ["CPI"],
+      "verification_status": "source_doc_extracted"
+    }
+  ],
+  "alloc_accounts": [
+    {
+      "rule_id": "ACCT-A-001",
+      "code": "131-010",
+      "name": "Land — Alloc",
+      "category": "asset_inventory_contra",
+      "pair_with": "131-300",
+      "fires_at_event": ["lot_sale_sih", "lot_sale_3rdy"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-A-002",
+      "code": "132-510",
+      "name": "Direct Cost — Alloc",
+      "category": "asset_cost_pool_contra",
+      "pair_with": "132-500",
+      "fires_at_event": ["lot_sale_sih", "lot_sale_3rdy"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-A-003",
+      "code": "132-610",
+      "name": "Indirect Cost — Alloc",
+      "category": "asset_cost_pool_contra",
+      "pair_with": "132-600",
+      "fires_at_event": ["lot_sale_sih", "lot_sale_3rdy"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-A-004",
+      "code": "132-710",
+      "name": "Water — Alloc",
+      "category": "asset_cost_pool_contra",
+      "pair_with": "132-700",
+      "fires_at_event": ["lot_sale_sih", "lot_sale_3rdy"],
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "ACCT-A-005",
+      "code": "240-112",
+      "name": "Warranty — Alloc",
+      "category": "liability_accrual_contra",
+      "pair_with": "240-102",
+      "fires_at_event": ["lot_sale_sih", "lot_sale_3rdy"],
+      "verification_status": "source_doc_extracted"
+    }
+  ],
+  "job_prefixes": [
+    {
+      "rule_id": "PREFIX-001",
+      "code": "LND",
+      "name": "Land",
+      "scope": "community_or_phase",
+      "valid_posting_accounts": ["145-100", "131-100", "131-200", "131-300"],
+      "owns_cost_type": "Land",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "PREFIX-002",
+      "code": "MPL",
+      "name": "Master Planning",
+      "scope": "community",
+      "valid_posting_accounts": ["131-300"],
+      "owns_cost_type": "Master Planning (rolled into Indirect or Land per workbook policy)",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "PREFIX-003",
+      "code": "IND",
+      "name": "Indirect",
+      "scope": "community_or_multi_phase",
+      "valid_posting_accounts": ["131-300", "132-600"],
+      "owns_cost_type": "Indirect",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "PREFIX-004",
+      "code": "DIR",
+      "name": "Direct",
+      "scope": "phase",
+      "valid_posting_accounts": ["131-300", "132-500"],
+      "owns_cost_type": "Direct",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "PREFIX-005",
+      "code": "WTR",
+      "name": "Water",
+      "scope": "phase",
+      "valid_posting_accounts": ["131-300", "132-700"],
+      "owns_cost_type": "Water",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "PREFIX-006",
+      "code": "CPI",
+      "name": "Closing / Warranty (Closing-Phase Inventory)",
+      "scope": "lot",
+      "valid_posting_accounts": ["240-102"],
+      "owns_cost_type": "Warranty",
+      "verification_status": "source_doc_extracted",
+      "verification_note": "Long-name expansion of CPI (\"Closing-Phase Inventory\") is inferred; please confirm against GL Process Guide."
+    }
+  ],
+  "validity_matrix": {
+    "description": "Lookup of (job_prefix, posting_account_code) → valid|invalid. Drives invalid-combination check in monthly_review_checks_v1.json.",
+    "valid_combinations": [
+      {"prefix": "LND", "account": "145-100"},
+      {"prefix": "LND", "account": "131-100"},
+      {"prefix": "LND", "account": "131-200"},
+      {"prefix": "LND", "account": "131-300"},
+      {"prefix": "MPL", "account": "131-300"},
+      {"prefix": "IND", "account": "131-300"},
+      {"prefix": "IND", "account": "132-600"},
+      {"prefix": "DIR", "account": "131-300"},
+      {"prefix": "DIR", "account": "132-500"},
+      {"prefix": "WTR", "account": "131-300"},
+      {"prefix": "WTR", "account": "132-700"},
+      {"prefix": "CPI", "account": "240-102"}
+    ],
+    "invalid_combination_examples": [
+      {"prefix": "LND", "account": "132-500", "reason": "Land prefix may not post to Direct Cost."},
+      {"prefix": "LND", "account": "132-600", "reason": "Land prefix may not post to Indirect Cost."},
+      {"prefix": "DIR", "account": "131-100", "reason": "Direct prefix may not post to Raw Land."},
+      {"prefix": "CPI", "account": "131-300", "reason": "Closing/Warranty prefix only posts to 240-102."},
+      {"prefix": "WTR", "account": "132-500", "reason": "Water prefix may not post to Direct Cost — these are separate pools."}
+    ]
+  },
+  "posting_alloc_pairing_rule": {
+    "rule": "Every allocation event must move pooled cost from a posting account to its paired alloc account. The pair is fixed (131-300↔131-010, 132-500↔132-510, 132-600↔132-610, 132-700↔132-710, 240-102↔240-112).",
+    "violation_handling": "Any debit to an alloc account without a corresponding credit to its paired posting account (and vice versa) is flagged in monthly_review_checks_v1.json#alloc_pair_balance_check.",
+    "verification_status": "source_doc_extracted"
+  },
+  "open_questions": [
+    "Confirm CPI long-form name (\"Closing-Phase Inventory\" vs \"Closing/Warranty\" vs other).",
+    "Confirm whether MPL has any posting use beyond 131-300 in current chart-of-accounts (briefing implies single account).",
+    "Whether 145-100 EMD is always per-DevCo or shared across DevCos via a clearing convention.",
+    "Whether 240-102/240-112 carry a sub-account dimension by warranty vintage."
+  ]
+}

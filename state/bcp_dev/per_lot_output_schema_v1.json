@@ -1,0 +1,388 @@
+{
+  "schema_version": "per_lot_output_schema_v1",
+  "generated_at": "2026-05-11",
+  "generated_by": "Agent B (BCP Dev v0.2)",
+  "purpose": "Canonical shape of the BCP Dev Per-Lot Output. Combines master Flagship Per-Lot Output columns with the richer satellite (PF) Summary-per-lot columns. Every field carries source, grain, confidence, and compute_status metadata so downstream tools can produce ready/missing checklists or deterministic outputs depending on input availability.",
+
+  "primary_key": ["community", "phase", "lot_type"],
+  "secondary_grain": "per_lot (totals divided by Lots)",
+
+  "section_model": {
+    "previous_sales_allocations": "Lots already sold/closed; do not re-allocate. Carry computed values from satellite Previous section as historical record.",
+    "remaining_sales_allocations": "Lots open for sale; allocation engine target.",
+    "out_of_scope": "Range rows, shell phases, communities outside BCP Dev v0.2 scope. Return spec only."
+  },
+
+  "fields": [
+    {
+      "field_id": "community",
+      "label": "Community",
+      "category": "key",
+      "data_type": "string",
+      "grain": "community",
+      "source_today": "manual_or_clickup",
+      "source_eventually": "clickup.subdivision (canonical) — resolved through source_crosswalks_v1.clickup_subdivision_to_qbd_customer",
+      "required": true,
+      "confidence": "high",
+      "compute_status": "passthrough"
+    },
+    {
+      "field_id": "phase",
+      "label": "Phase",
+      "category": "key",
+      "data_type": "string",
+      "grain": "phase",
+      "source_today": "manual_or_clickup",
+      "source_eventually": "clickup.phase_identifier",
+      "required": true,
+      "confidence": "high",
+      "compute_status": "passthrough"
+    },
+    {
+      "field_id": "job_id",
+      "label": "Job Id",
+      "category": "key",
+      "data_type": "string",
+      "grain": "phase",
+      "source_today": "qbd_jcs",
+      "source_eventually": "qbd_jcs.job_id resolved through source_crosswalks_v1.phase_to_qbd_job",
+      "required": false,
+      "confidence": "medium",
+      "compute_status": "passthrough",
+      "notes": "Many phases lack Job Id today — treat absence as readiness blocker for QBD-actuals lookup, not for spec emission."
+    },
+    {
+      "field_id": "lot_type",
+      "label": "Lot Type",
+      "category": "key",
+      "data_type": "string",
+      "grain": "phase_x_lot_type",
+      "source_today": "manual_or_landdev",
+      "source_eventually": "clickup.lot_type",
+      "required": true,
+      "confidence": "high",
+      "compute_status": "passthrough",
+      "enum_observed": ["SFR", "TH", "MF", "Comm", "Church", "Open"]
+    },
+    {
+      "field_id": "lots",
+      "label": "Lots",
+      "category": "input",
+      "data_type": "integer",
+      "grain": "phase_x_lot_type",
+      "source_today": "lot_mix_pricing.lots_lotdata",
+      "source_eventually": "clickup.lot_count (with three-way mda_day_check vs landdev and workbook manual)",
+      "required": true,
+      "confidence": "high_for_lotdata medium_for_clickup_until_mda_check_passes",
+      "compute_status": "passthrough",
+      "hard_gate": "mda_day_lot_count_check"
+    },
+    {
+      "field_id": "direct_budget_landdev",
+      "label": "Direct Budget (LandDev)",
+      "category": "input",
+      "data_type": "currency_usd",
+      "grain": "phase",
+      "source_today": "per_lot_output.direct_budget_landdev (master) or satellite Budgeting.Directs.Curr Budget LandDev",
+      "source_eventually": "landdev_api.current_budget WHERE prefix=DIR AND phase=this.phase",
+      "required": true,
+      "confidence": "high_when_present",
+      "compute_status": "input_required"
+    },
+    {
+      "field_id": "direct_budget_override",
+      "label": "Direct Budget Override",
+      "category": "input",
+      "data_type": "currency_usd",
+      "grain": "phase",
+      "source_today": "manual",
+      "required": false,
+      "confidence": "low",
+      "compute_status": "input_optional",
+      "ui_hint": "blue_fill_yellow_text"
+    },
+    {
+      "field_id": "direct_budget_estimate",
+      "label": "Direct Budget Estimate (per-lot rule)",
+      "category": "input_estimated",
+      "data_type": "currency_usd",
+      "grain": "phase",
+      "source_today": "satellite_comment_field (e.g., 'Est. $60k/lot', 'Est. $45k/lot')",
+      "required": false,
+      "confidence": "low",
+      "compute_status": "input_optional_with_caveat",
+      "caveat_required_in_output": true,
+      "rationale": "PF/LH satellites use $/lot estimates as the Base when no LandDev budget exists. v0.2 must propagate the satellite Comment so consumers see this is not LandDev-authoritative."
+    },
+    {
+      "field_id": "effective_direct_budget",
+      "label": "Effective Direct Budget",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "phase",
+      "formula": "COALESCE(direct_budget_override, direct_budget_landdev, direct_budget_estimate)",
+      "method_id_ref": "direct_per_phase",
+      "compute_status": "computed_when_inputs_present",
+      "ratified": true
+    },
+    {
+      "field_id": "land_pool_community",
+      "label": "Community Land Pool",
+      "category": "input",
+      "data_type": "currency_usd",
+      "grain": "community",
+      "source_today": "indirect_land_pools (Type=LAND, SUMIFS by community)",
+      "source_eventually": "landdev_api.current_budget WHERE prefix=LND AND community=this.community",
+      "required": true,
+      "confidence": "high_when_present",
+      "compute_status": "input_required"
+    },
+    {
+      "field_id": "land_allocated",
+      "label": "Land Allocated",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "phase_x_lot_type",
+      "formula": "land_pool_community * sales_basis_pct_community",
+      "method_id_ref": "land_at_mda",
+      "trigger_event": "mda_execution",
+      "compute_status": "computed_when_inputs_present",
+      "ratified": true
+    },
+    {
+      "field_id": "indirect_pool_community",
+      "label": "Community Indirect Pool",
+      "category": "input",
+      "data_type": "currency_usd",
+      "grain": "community",
+      "source_today": "indirect_land_pools (Type=INDIRECT, SUMIFS by community)",
+      "source_eventually": "landdev_api.current_budget WHERE prefix=IND AND community=this.community",
+      "required": true,
+      "confidence": "high_when_present",
+      "compute_status": "input_required"
+    },
+    {
+      "field_id": "indirect_allocated",
+      "label": "Indirect Allocated",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "phase_x_lot_type",
+      "formula": "indirect_pool_community * sales_basis_pct_community",
+      "method_id_ref": "indirect_community",
+      "compute_status": "computed_when_inputs_present",
+      "ratified": true,
+      "satellite_observation": "PF satellite shows negative indirect pool ($-1,249,493.54). Treat as workbook credit; flag in output."
+    },
+    {
+      "field_id": "water_pool_phase",
+      "label": "Water Pool (per phase, from letter)",
+      "category": "input",
+      "data_type": "currency_usd",
+      "grain": "phase",
+      "source_today": "indirect_pool entry tagged with water (e.g., 'Ault Water $702,262.00') OR satellite cost-of-water column",
+      "source_eventually": "water_letter_per_phase",
+      "required": false,
+      "required_when": "phase_uses_water_method",
+      "confidence": "medium_when_present",
+      "compute_status": "input_required_for_water_method"
+    },
+    {
+      "field_id": "water_allocated",
+      "label": "Water Allocated",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "phase_x_lot_type",
+      "formula": "water_pool * (phase_units / total_units_in_letter)",
+      "method_id_ref": "water_by_letter",
+      "compute_status": "computed_when_inputs_present",
+      "ratified": true,
+      "missing_in_master": true,
+      "fix_required": "Add water column to master Flagship Per-Lot Output sheet."
+    },
+    {
+      "field_id": "warranty_allocated",
+      "label": "Warranty Allocated",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "sales_price_per_lot * warranty_rate",
+      "method_id_ref": "warranty_at_sale",
+      "trigger_event": "lot_sale_sih OR lot_sale_3rdy",
+      "compute_status": "computed_at_sale_event",
+      "ratified": true,
+      "missing_in_master": true
+    },
+    {
+      "field_id": "total_cost",
+      "label": "Total Cost",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "phase_x_lot_type",
+      "formula": "effective_direct_budget + indirect_allocated + land_allocated + water_allocated + warranty_allocated",
+      "compute_status": "computed_when_inputs_present"
+    },
+    {
+      "field_id": "sales_price_per_lot",
+      "label": "Sales Price / Lot",
+      "category": "input",
+      "data_type": "currency_usd",
+      "grain": "phase_x_lot_type",
+      "source_today": "satellite Sales column / Assumed Price/Lot OR lot_mix_pricing.avg_projected_sales_price",
+      "source_eventually": "clickup_or_pricing_system",
+      "required": true,
+      "confidence": "high_in_satellite low_in_master",
+      "compute_status": "input_required",
+      "blocker_today": "Master Flagship Lot Mix & Pricing has zero pricing populated."
+    },
+    {
+      "field_id": "ext_sales_price",
+      "label": "Extended Sales Price",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "phase_x_lot_type",
+      "formula": "sales_price_per_lot * lots",
+      "compute_status": "computed_when_inputs_present"
+    },
+    {
+      "field_id": "sales_basis_pct_community",
+      "label": "Sales Basis % (Community)",
+      "category": "computed",
+      "data_type": "percent",
+      "grain": "phase_x_lot_type",
+      "formula": "ext_sales_price / SUM(ext_sales_price WHERE community = this.community)",
+      "compute_status": "computed_when_inputs_present"
+    },
+    {
+      "field_id": "prsv_pct",
+      "label": "PRSV% (Project Remaining Sales Value share)",
+      "category": "computed",
+      "data_type": "percent",
+      "grain": "phase_x_lot_type",
+      "formula": "ext_sales_price / SUM(ext_sales_price WHERE phase = this.phase AND section = remaining)",
+      "satellite_origin": "PF tab Allocation section column 'PRSV%'"
+    },
+    {
+      "field_id": "crsv_pct",
+      "label": "CRSV% (Community Remaining Sales Value share)",
+      "category": "computed",
+      "data_type": "percent",
+      "grain": "phase_x_lot_type",
+      "formula": "ext_sales_price / SUM(ext_sales_price WHERE community = this.community AND section = remaining)",
+      "satellite_origin": "PF tab Allocation section column 'CRSV%'"
+    },
+    {
+      "field_id": "direct_per_lot",
+      "label": "Direct / Lot",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "effective_direct_budget / lots"
+    },
+    {
+      "field_id": "indirect_per_lot",
+      "label": "Indirect / Lot",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "indirect_allocated / lots"
+    },
+    {
+      "field_id": "land_per_lot",
+      "label": "Land / Lot",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "land_allocated / lots"
+    },
+    {
+      "field_id": "water_per_lot",
+      "label": "Water / Lot",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "water_allocated / lots"
+    },
+    {
+      "field_id": "total_per_lot",
+      "label": "Total / Lot",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "total_cost / lots"
+    },
+    {
+      "field_id": "margin_per_lot",
+      "label": "Margin / Lot",
+      "category": "computed",
+      "data_type": "currency_usd",
+      "grain": "lot",
+      "formula": "sales_price_per_lot - total_per_lot",
+      "satellite_origin": "PF tab Summary section column 'Margin'"
+    },
+    {
+      "field_id": "margin_pct",
+      "label": "Margin %",
+      "category": "computed",
+      "data_type": "percent",
+      "grain": "lot",
+      "formula": "margin_per_lot / sales_price_per_lot"
+    }
+  ],
+
+  "qbd_actuals_overlay_fields": {
+    "purpose": "Optional overlay fields that bring QBD actuals into the Per-Lot Output for variance reporting. Not required for allocation but required for monthly reconciliation tools.",
+    "fields": [
+      {"field_id": "actuals_landdev", "source": "landdev.actuals", "grain": "phase"},
+      {"field_id": "actuals_qbd_plj", "source": "qbd_plj.actuals", "grain": "qbd_job"},
+      {"field_id": "actuals_qbd_bsj_inventory", "source": "qbd_bsj.12100_inventory_asset", "grain": "qbd_job"},
+      {"field_id": "actuals_qbd_gl", "source": "qbd_gl.actuals", "grain": "qbd_job_x_account"},
+      {"field_id": "itd_actuals_jcs", "source": "qbd_jcs.itd_actuals", "grain": "qbd_job"}
+    ]
+  },
+
+  "provenance_block_required": {
+    "fields": [
+      "computed_at (timestamp)",
+      "source_files (list of {path, last_modified, schema_version})",
+      "method_ids_used (list)",
+      "ratified_methods (list)",
+      "unratified_methods_refused (list)",
+      "mda_day_check_status (passed | passed_with_caveat | failed | not_applicable)",
+      "crosswalks_used (list of crosswalk_ids)",
+      "compute_ready_count, compute_ready_with_caveat_count, blocked_count, spec_only_count"
+    ]
+  },
+
+  "refusal_patterns": [
+    {
+      "pattern_id": "refuse_range_row",
+      "trigger": "phase matches range pattern (e.g., 'AS 1-3', 'AS 4-6') AND no per-lot expansion source",
+      "method_id_ref": "range_row_unratified",
+      "behavior": "Return spec_only with refusal message citing process_rules:allocation_methods_v1:range_row_unratified.refusal_reason"
+    },
+    {
+      "pattern_id": "refuse_unmapped_phase",
+      "trigger": "JCSList shows 'Mapping needed' for phase OR QB Job for this row",
+      "behavior": "Return blocked with required crosswalk pointer to source_crosswalks_v1:phase_to_qbd_job"
+    },
+    {
+      "pattern_id": "refuse_mda_gate_failure",
+      "trigger": "mda_day_lot_count_check returns mismatch with no caveat-eligible two-of-three",
+      "behavior": "Return blocked with hard-gate failure citing process_rules:status_taxonomy_v1:mda_day_check"
+    },
+    {
+      "pattern_id": "refuse_zero_basis",
+      "trigger": "sum of ext_sales_price across community = 0 (master state today)",
+      "behavior": "Return blocked with required input avg_projected_sales_price"
+    },
+    {
+      "pattern_id": "refuse_org_wide",
+      "trigger": "community in {Hillcrest, Flagship Belmont} for periods after 2017-02",
+      "behavior": "Return out_of_scope per PROJECT_STATE org-wide rule"
+    }
+  ],
+
+  "version_history": [
+    {"version": "v1", "date": "2026-05-11", "author": "Agent B", "notes": "Combines master Per-Lot Output columns with PF satellite Summary-per-lot columns. Adds Water and Warranty as canonical columns missing from master."}
+  ]
+}

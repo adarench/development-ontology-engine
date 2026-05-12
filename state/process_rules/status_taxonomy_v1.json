@@ -1,0 +1,218 @@
+{
+  "schema_version": "status_taxonomy_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent C",
+  "source": {
+    "primary": "UCH_Home_DevCos_ClickUp_Lifecycle_Tracking_Guide_v2.docx",
+    "secondary": "UCH_Land_Lifecycle_Walkthrough_v2.pptx",
+    "doc_status": "originals not yet recovered into data/raw/process_docs/; statuses authored from briefing extract in docs/bcp_dev_process_ontology_v1.md and docs/bcp_dev_allocation_accounting_tool_family_plan.md"
+  },
+  "scope": {
+    "domain": "ClickUp Lot lifecycle",
+    "applies_to_entity": "Lot",
+    "secondary_carriers": ["Property", "Phase"],
+    "devcos_in_scope": ["BCPD", "BCPBL", "ASD", "BCPI"]
+  },
+  "gl_relevance_legend": {
+    "devco": "Triggers DevCo (land/dev) GL entries; consumed by clickup_gl_event_map_v1.json.",
+    "operational": "Operational milestone for BCP/Flagship vertical or buyer process; no DevCo GL effect.",
+    "both": "Carries both a DevCo GL effect and an operational milestone.",
+    "tracking": "Recorded for visibility/audit; no GL entry."
+  },
+  "statuses": [
+    {
+      "rule_id": "STATUS-001",
+      "status_code": "LND_RAW_LAND",
+      "status_label": "(LND) RAW LAND",
+      "ordinal": 10,
+      "description": "Property has closed to the DevCo. No MDA yet. Property task exists; no Phase or Lot tasks yet.",
+      "gl_relevance": "devco",
+      "event_trigger_id": "closing",
+      "required_fields_for_transition_in": ["Closing Date", "QBD Customer", "Property Name"],
+      "required_fields_for_transition_out": ["MDA Execution Date"],
+      "valid_predecessors": [null, "PRE_CLOSING_PIPELINE"],
+      "valid_successors": ["LND_ENTITLED"],
+      "creates_clickup": ["Property task"],
+      "creates_qbd": ["Customer", "LND-Overall job"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-002",
+      "status_code": "LND_ENTITLED",
+      "status_label": "(LND) ENTITLED",
+      "ordinal": 20,
+      "description": "MDA executed. Property is formally entitled. Phase task(s) and Lot task(s) created.",
+      "gl_relevance": "devco",
+      "event_trigger_id": "mda_execution",
+      "required_fields_for_transition_in": ["MDA Execution Date", "Phase Identifier", "Lot Count by Type"],
+      "required_fields_for_transition_out": ["Pre-Con Meeting Date"],
+      "valid_predecessors": ["LND_RAW_LAND"],
+      "valid_successors": ["LND_DEVELOPING"],
+      "creates_clickup": ["Phase task(s)", "Lot task(s)"],
+      "creates_qbd": ["LND-Phase job"],
+      "hard_gates": ["mda_day_lot_count_check"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-003",
+      "status_code": "LND_DEVELOPING",
+      "status_label": "(LND) DEVELOPING",
+      "ordinal": 30,
+      "description": "Pre-Construction meeting held. Active land development. WIP land cost begins accumulating.",
+      "gl_relevance": "devco",
+      "event_trigger_id": "pre_con",
+      "required_fields_for_transition_in": ["Pre-Con Meeting Date"],
+      "required_fields_for_transition_out": ["Final Plat Recorded Date"],
+      "valid_predecessors": ["LND_ENTITLED"],
+      "valid_successors": ["LND_RECORDED_NOT_SOLD"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-004",
+      "status_code": "LND_RECORDED_NOT_SOLD",
+      "status_label": "(LND) RECORDED - NOT SOLD",
+      "ordinal": 40,
+      "description": "Final plat recorded with the county. Lots are sellable. No GL entry; tracking event.",
+      "gl_relevance": "tracking",
+      "event_trigger_id": "final_plat",
+      "required_fields_for_transition_in": ["Final Plat Recorded Date"],
+      "required_fields_for_transition_out_options": [
+        {"to_status": "LND_RECORDED_SIH", "required_fields": ["FMV at Transfer", "Sale Counterparty Name", "Sale Date"]},
+        {"to_status": "LND_RECORDED_SOLD_3RDY", "required_fields": ["Sale Price", "Sale Counterparty Name", "Sale Date"]}
+      ],
+      "valid_predecessors": ["LND_DEVELOPING"],
+      "valid_successors": ["LND_RECORDED_SIH", "LND_RECORDED_SOLD_3RDY"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-005",
+      "status_code": "LND_RECORDED_SIH",
+      "status_label": "(LND) RECORDED - SIH",
+      "ordinal": 50,
+      "description": "Lot sold in-house to BCP / Flagship homebuilder vertical. FMV at Transfer is the transfer price.",
+      "gl_relevance": "devco",
+      "event_trigger_id": "lot_sale_sih",
+      "lot_sale_path": "SIH",
+      "required_fields_for_transition_in": ["FMV at Transfer", "Sale Counterparty Name", "Sale Date"],
+      "valid_predecessors": ["LND_RECORDED_NOT_SOLD"],
+      "valid_successors": ["WAITING_FOR_NEW_STARTS", "CONSTRUCTION_IN_PROGRESS"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-006",
+      "status_code": "LND_RECORDED_SOLD_3RDY",
+      "status_label": "(LND) RECORDED - SOLD 3RDY",
+      "ordinal": 51,
+      "description": "Lot sold to a third party (non-affiliate). Sale Price is the revenue.",
+      "gl_relevance": "devco",
+      "event_trigger_id": "lot_sale_3rdy",
+      "lot_sale_path": "3RDY",
+      "required_fields_for_transition_in": ["Sale Price", "Sale Counterparty Name", "Sale Date"],
+      "valid_predecessors": ["LND_RECORDED_NOT_SOLD"],
+      "valid_successors": ["LIFECYCLE_TERMINAL_3RDY"],
+      "terminal_for_devco": true,
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-007",
+      "status_code": "WAITING_FOR_NEW_STARTS",
+      "status_label": "WAITING FOR NEW STARTS",
+      "ordinal": 60,
+      "description": "Lot has been transferred SIH but vertical construction has not yet started. Operational pause on the homebuilder side.",
+      "gl_relevance": "operational",
+      "event_trigger_id": null,
+      "valid_predecessors": ["LND_RECORDED_SIH"],
+      "valid_successors": ["CONSTRUCTION_IN_PROGRESS"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-008",
+      "status_code": "CONSTRUCTION_IN_PROGRESS",
+      "status_label": "CONSTRUCTION IN PROGRESS",
+      "ordinal": 70,
+      "description": "Umbrella for vertical construction sub-statuses (foundation, framing, drywall, etc.). Specific sub-status list lives in the lifecycle PPT and is not yet ratified here.",
+      "gl_relevance": "operational",
+      "event_trigger_id": null,
+      "sub_statuses_pending": true,
+      "valid_predecessors": ["LND_RECORDED_SIH", "WAITING_FOR_NEW_STARTS"],
+      "valid_successors": ["WALK_STAGE"],
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Vertical construction sub-status list (foundation/framing/drywall/etc.) must be enumerated from the lifecycle PPT before this status is split."
+    },
+    {
+      "rule_id": "STATUS-009",
+      "status_code": "WALK_STAGE",
+      "status_label": "WALK STAGE",
+      "ordinal": 80,
+      "description": "Buyer walk-through prior to closing. Operational on the homebuilder side.",
+      "gl_relevance": "operational",
+      "event_trigger_id": null,
+      "valid_predecessors": ["CONSTRUCTION_IN_PROGRESS"],
+      "valid_successors": ["READY_CLOSE"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-010",
+      "status_code": "READY_CLOSE",
+      "status_label": "READY CLOSE",
+      "ordinal": 90,
+      "description": "Home is ready to close to the end buyer.",
+      "gl_relevance": "operational",
+      "event_trigger_id": null,
+      "valid_predecessors": ["WALK_STAGE"],
+      "valid_successors": ["CLOSED"],
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-011",
+      "status_code": "CLOSED",
+      "status_label": "CLOSED",
+      "ordinal": 100,
+      "description": "Home closed to the end buyer. Terminal status for the vertical-construction lifecycle.",
+      "gl_relevance": "operational",
+      "event_trigger_id": null,
+      "valid_predecessors": ["READY_CLOSE"],
+      "valid_successors": [],
+      "terminal_for_homebuilder": true,
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "STATUS-012",
+      "status_code": "EXCEPTION_CANCELLED",
+      "status_label": "CANCELLED",
+      "ordinal": 900,
+      "description": "Lot or contract cancelled out of normal lifecycle. Cancellation handling rule lives in exception_rules_v1.json.",
+      "gl_relevance": "both",
+      "event_trigger_id": "cancellation",
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Exact cancellation status label and allowed predecessors from ClickUp Lifecycle Guide unconfirmed."
+    },
+    {
+      "rule_id": "STATUS-013",
+      "status_code": "EXCEPTION_ON_HOLD",
+      "status_label": "ON HOLD",
+      "ordinal": 901,
+      "description": "Lot temporarily paused outside normal lifecycle.",
+      "gl_relevance": "tracking",
+      "event_trigger_id": null,
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "Existence of an explicit ON HOLD status not confirmed in briefing; placeholder pending lifecycle PPT review."
+    },
+    {
+      "rule_id": "STATUS-014",
+      "status_code": "EXCEPTION_REOPENED",
+      "status_label": "REOPENED",
+      "ordinal": 902,
+      "description": "Lot reopened after CANCELLED or terminal status. Rare; flagged for accounting review.",
+      "gl_relevance": "both",
+      "event_trigger_id": null,
+      "verification_status": "pending_source_doc_review"
+    }
+  ],
+  "open_questions": [
+    "Vertical-construction sub-status list (foundation, framing, drywall, exterior, mechanicals, finish, etc.) — needs enumeration from lifecycle PPT.",
+    "Whether (LND) ENTITLED can revert to (LND) RAW LAND under MDA cancellation — exception handling.",
+    "Confirm whether 'LAND - HELD' or similar interim states exist between RECORDED - NOT SOLD and lot sale.",
+    "Confirm the explicit ClickUp custom-field name (status vs. lifecycle_status vs. land_status)."
+  ]
+}

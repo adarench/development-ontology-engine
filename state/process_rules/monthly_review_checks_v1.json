@@ -1,0 +1,156 @@
+{
+  "schema_version": "monthly_review_checks_v1",
+  "generated_at": "2026-05-11",
+  "author": "Agent C",
+  "source": {
+    "primary": "UCH_Home_DevCos_GL_Structure_Process_Guide_v4.docx",
+    "secondary": "Inventory-by-Job report (operational artifact)",
+    "doc_status": "originals not yet recovered into data/raw/process_docs/; checks authored from briefing extract."
+  },
+  "consumed_by_tools": [
+    "query_bcp_dev_process",
+    "validate_crosswalk_readiness",
+    "(deferred) generate_monthly_review_checklist"
+  ],
+  "depends_on": [
+    "account_prefix_matrix_v1.json",
+    "clickup_gl_event_map_v1.json",
+    "allocation_methods_v1.json",
+    "exception_rules_v1.json"
+  ],
+  "review_cadence": "monthly",
+  "review_owner": "Finance — DevCo accounting",
+  "checks": [
+    {
+      "rule_id": "CHK-001",
+      "check_id": "alloc_pair_balance_check",
+      "name": "Posting/Alloc pair balance reconciliation",
+      "description": "For each posting/alloc pair (131-300↔131-010, 132-500↔132-510, 132-600↔132-610, 132-700↔132-710, 240-102↔240-112), validate that allocations move pooled cost in the expected direction and that no orphaned alloc-side entry exists without a paired posting-side entry on the same job.",
+      "scope": {"accounts": ["131-300", "131-010", "132-500", "132-510", "132-600", "132-610", "132-700", "132-710", "240-102", "240-112"]},
+      "query_pattern": "SELECT job_id, account, sum(amount) FROM gl WHERE account IN (paired set) GROUP BY job_id",
+      "expected_pattern": "For each (job_id, posting_account) the alloc-side balance moves toward zero only via paired alloc account entries; no alloc-side entry without a same-job posting credit.",
+      "exception_rule": "If alloc-side entry exists without paired posting-side credit on same job within the period, flag for accounting follow-up.",
+      "severity": "high",
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "CHK-002",
+      "check_id": "wip_to_alloc_at_lot_sale_check",
+      "name": "WIP → Alloc movement at lot sale",
+      "description": "Every 131-300 row should have a matching 131-010 alloc within N days of a recorded lot sale on the same lot. Same pattern for 132-500/510, 132-600/610, 132-700/710, 240-102/112.",
+      "scope": {"posting_accounts": ["131-300", "132-500", "132-600", "132-700", "240-102"]},
+      "query_pattern": "FOR each Lot with status (LND) RECORDED - SIH or (LND) RECORDED - SOLD 3RDY in period: verify allocation entries exist for all five paired alloc accounts within tolerance days.",
+      "expected_pattern": "Within 5 business days of lot sale (tolerance configurable), all five alloc entries posted.",
+      "exception_rule": "Surface lot sales without complete allocation set; classify as: (a) missing computation, (b) waiting on input, (c) intentional skip (e.g., zero water).",
+      "tolerance_days_default": 5,
+      "severity": "high",
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "CHK-003",
+      "check_id": "invalid_prefix_account_combination_check",
+      "name": "Invalid job-prefix × posting-account combination",
+      "description": "No GL entry should violate the validity matrix. E.g., no LND prefix on 132-500; no DIR prefix on 131-100; no CPI prefix outside 240-102.",
+      "scope": {"all_posting_accounts": true},
+      "query_pattern": "SELECT job_id, account, SUBSTR(job_id, 1, 3) AS prefix FROM gl JOIN account_prefix_matrix WHERE (prefix, account) NOT IN valid_combinations",
+      "expected_pattern": "Zero rows.",
+      "exception_rule": "Each violation: log job, account, amount, posting date; flag for reclassification entry.",
+      "severity": "critical",
+      "depends_on_rule": "account_prefix_matrix_v1.json#validity_matrix",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "CHK-004",
+      "check_id": "wip_balance_to_open_phase_check",
+      "name": "WIP balance ties to open ClickUp Phase",
+      "description": "Every non-zero 131-300 (WIP Land), 132-500 (Direct), or 132-700 (Water) balance scoped to an LND-Phase or DIR/WTR job should map to an open Phase task in ClickUp. Closed phases should not carry undisbursed WIP.",
+      "scope": {"posting_accounts": ["131-300", "132-500", "132-700"]},
+      "query_pattern": "Join gl_balance(job_id) to clickup_phase_task(phase_id via crosswalk). Flag where ClickUp phase status is closed/terminal but balance > 0.",
+      "expected_pattern": "All WIP balance attributed to phases in DEVELOPING or earlier; or fully-allocated at lot-sale completion.",
+      "exception_rule": "Surface stale WIP for accounting write-down or reclassification review.",
+      "severity": "medium",
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "CHK-005",
+      "check_id": "indirect_pool_drainage_check",
+      "name": "Indirect pool drainage rate",
+      "description": "Community-level indirect pool (132-600) should drain in proportion to lot-sale activity. A pool that grows faster than lots sell signals over-accumulation or missed allocation.",
+      "scope": {"posting_account": "132-600"},
+      "query_pattern": "Compute (period inflow to 132-600) − (period alloc to 132-610) per community job; compare to lot sales completed in period.",
+      "expected_pattern": "Net indirect pool change is negative or near-zero in periods with active lot sales.",
+      "exception_rule": "Flag communities where pool grew while lot sales occurred; review allocation cadence.",
+      "severity": "medium",
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "CHK-006",
+      "check_id": "lot_count_three_way_tie_check",
+      "name": "MDA Day three-way lot count tie",
+      "description": "For every Phase that hit MDA in the period, ClickUp lot count, MDA document lot count, and Allocation Workbook lot count must all match. Mismatch is the canonical MDA Day hard gate failure.",
+      "scope": {"event_id": "mda_execution"},
+      "query_pattern": "SELECT phase_id, clickup_lot_count, mda_lot_count, workbook_lot_count FROM phase WHERE mda_date IN period",
+      "expected_pattern": "clickup_lot_count = mda_lot_count = workbook_lot_count (exact integer match).",
+      "exception_rule": "Surface partial-tie (2 of 3) and full-mismatch separately. Block JE post until reconciled.",
+      "severity": "critical",
+      "depends_on_rule": "clickup_gl_event_map_v1.json#mda_execution.hard_gates",
+      "verification_status": "source_doc_extracted"
+    },
+    {
+      "rule_id": "CHK-007",
+      "check_id": "warranty_accrual_completeness_check",
+      "name": "Warranty accrual present at every lot sale",
+      "description": "Every lot sale (SIH or 3RDY) in the period must have a corresponding 240-102 entry tied to the same lot via CPI prefix.",
+      "scope": {"posting_account": "240-102", "events": ["lot_sale_sih", "lot_sale_3rdy"]},
+      "query_pattern": "FOR each lot sale event in period: verify a 240-102 entry exists with CPI prefix and amount = transfer_value × warranty_rate within tolerance.",
+      "expected_pattern": "1:1 lot sale to warranty accrual.",
+      "exception_rule": "Flag any lot sale missing warranty accrual; flag any warranty accrual without lot sale.",
+      "severity": "high",
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "CHK-008",
+      "check_id": "emd_release_at_closing_check",
+      "name": "EMD release at closing",
+      "description": "Any 145-100 (Earnest Money Deposits) balance should clear at the related closing event. Outstanding EMD balances older than M months are a flag.",
+      "scope": {"posting_account": "145-100"},
+      "query_pattern": "SELECT job_id, balance, age_days FROM gl WHERE account = '145-100' AND balance != 0",
+      "expected_pattern": "EMD balances clear within reasonable closing horizon.",
+      "exception_rule": "Flag EMD aged > N months for review (likely closing cancelled or pending).",
+      "tolerance_months_default": 6,
+      "severity": "medium",
+      "verification_status": "pending_source_doc_review",
+      "verification_note": "EMD aging tolerance not specified in briefing; M=6 months is a reasonable placeholder."
+    },
+    {
+      "rule_id": "CHK-009",
+      "check_id": "land_basis_carryover_continuity_check",
+      "name": "Land basis carryover continuity (131-100 → 131-200 → 131-300)",
+      "description": "For each property, the sum of land basis flowing through the three land accounts should remain conserved (modulo allocations to 131-010). A discrepancy signals a missed entry.",
+      "scope": {"posting_accounts": ["131-100", "131-200", "131-300"], "alloc_account": "131-010"},
+      "query_pattern": "Per property/community: assert (debit to 131-100) = (credit to 131-100) and chain through 131-200 → 131-300 → 131-010 within tolerance.",
+      "expected_pattern": "Conservation holds (sum in == sum out + remaining WIP).",
+      "exception_rule": "Surface property-level imbalances for accounting review.",
+      "severity": "high",
+      "verification_status": "inferred_from_briefing"
+    },
+    {
+      "rule_id": "CHK-010",
+      "check_id": "stale_crosswalk_check",
+      "name": "Stale crosswalk values impacting period activity",
+      "description": "Any unresolved crosswalk row (per source_crosswalks_v1.json) that is referenced by GL activity in the period should be surfaced. Unresolved subdivision↔QBD customer mappings are the most common.",
+      "scope": {"crosswalk_files": ["state/bcp_dev/source_crosswalks_v1.json"]},
+      "query_pattern": "Cross-reference unresolved crosswalk values to period GL activity; surface intersections.",
+      "expected_pattern": "Zero unresolved-crosswalk rows tied to period activity.",
+      "exception_rule": "Flag for source-owner mapping resolution before next month-end close.",
+      "severity": "medium",
+      "verification_status": "inferred_from_briefing"
+    }
+  ],
+  "open_questions": [
+    "Tolerance days for CHK-002 (WIP → Alloc at lot sale).",
+    "EMD aging threshold for CHK-008.",
+    "Whether CHK-005 (indirect drainage) should be per community or per DevCo.",
+    "Whether the Inventory-by-Job report has additional standard checks not captured here."
+  ]
+}

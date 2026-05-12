@@ -1,0 +1,299 @@
+{
+  "schema_version": "allocation_workbook_schema_v1",
+  "generated_at": "2026-05-11",
+  "generated_by": "Agent B (BCP Dev v0.2)",
+  "purpose": "Sheet-by-sheet, column-by-column schema of the Flagship Allocation Workbook (master) and the per-community satellite allocation workbooks (LH, PF). Drives check_allocation_readiness, explain_allocation_logic, and the LH/PF compute follow-on. No computation here — spec only.",
+
+  "source_files_observed": [
+    {
+      "logical_name": "flagship_allocation_workbook_master",
+      "user_referenced_name": "Flagship_Allocation_Workbook 08.xlsm",
+      "observed_in_repo": "data/raw/datarails_unzipped/phase_cost_starter/Flagship Allocation Workbook v3.xlsx (CSV exports, one per sheet)",
+      "version_delta_caveat": "User referenced v08 (.xlsm). Repo has v3 (.xlsx CSV exports). v0.2 schema is authored from v3; bump to allocation_workbook_schema_v2 once v8 macro-free .xlsx is supplied.",
+      "as_of": "2025-04-16",
+      "sheet_count": 5
+    },
+    {
+      "logical_name": "lh_satellite_workbook",
+      "user_referenced_name": null,
+      "observed_in_repo": "data/raw/datarails_unzipped/phase_cost_starter/LH Allocation 2025.10.xlsx (CSV exports: LH, PLJ, JCSList, AAJ, BSJ, BCPBL SB)",
+      "as_of": "2025-10",
+      "sheet_count": 6
+    },
+    {
+      "logical_name": "pf_satellite_workbook",
+      "user_referenced_name": null,
+      "observed_in_repo": "data/raw/datarails_unzipped/phase_cost_starter/Parkway Allocation 2025.10.xlsx (CSV exports: PF, JCSList, AAJ)",
+      "as_of": "2025-10",
+      "sheet_count": 3,
+      "note": "PF tab is the most fully populated allocation example in the repo. Use as canonical compute reference."
+    },
+    {
+      "logical_name": "bcpdev_plj",
+      "user_referenced_name": "BCPDev PLJ 2026.03.31.CSV",
+      "observed_in_repo": "Not directly present. Closest analog: PLJ tab inside LH Allocation 2025.10.xlsx (Harmony slice) and the BCPDev row range inside JCSList tabs.",
+      "freshness_caveat": "Authoritative BCPDev PLJ 2026.03.31 export is not yet in repo. v0.2 readiness checks must surface this gap."
+    },
+    {
+      "logical_name": "jcs_bcpd",
+      "user_referenced_name": "JCS BCPD.xlsm",
+      "observed_in_repo": "JCSList tab inside LH Allocation 2025.10.xlsx and Parkway Allocation 2025.10.xlsx — same content (BCPDev/ASD/BCPBL/BCPI rows), one column block keyed by Tab=BCPDev.",
+      "as_of": "2025-10"
+    },
+    {
+      "logical_name": "jcs_asd",
+      "user_referenced_name": "JCS ASD.xlsm",
+      "observed_in_repo": "JCSList tab inside LH/PF satellite workbooks — same content, one column block keyed by Tab=ASD.",
+      "as_of": "2025-10"
+    }
+  ],
+
+  "workbooks": {
+    "flagship_master_v3": {
+      "role": "master_allocation_engine",
+      "scope": "all_communities (BCPD + Hillcrest + Flagship Belmont + others)",
+      "computation_state": "framework_only",
+      "computation_state_reason": "Lots (Manual Input) and Avg Projected Sales Price are empty for every row in Lot Mix & Pricing. Sales Basis % therefore = 0% for every phase, so Indirect Allocated and Land Allocated resolve to $0 across all communities. Direct Budget (LandDev) is populated for many phases but does not compute through to per-lot output without sales basis.",
+      "sheets": [
+        {
+          "sheet_name": "Instructions",
+          "csv_basename": "Flagship Allocation Workbook v3.xlsx - Instructions.csv",
+          "role": "documentation",
+          "primary_key": null,
+          "column_count": 1,
+          "columns": [],
+          "io_classification": "metadata"
+        },
+        {
+          "sheet_name": "Lot Mix & Pricing",
+          "csv_basename": "Flagship Allocation Workbook v3.xlsx - Lot Mix & Pricing.csv",
+          "role": "input_lot_counts_and_pricing",
+          "primary_key": ["Community", "Phase", "Lot Type"],
+          "row_count": 80,
+          "subtotal_rows": "Per-community subtotals plus GRAND TOTAL appended at bottom (rows 82-90).",
+          "columns": [
+            {"name": "Community", "io": "input", "source_system": "manual_or_clickup", "source_field": "subdivision", "grain": "community", "required": true, "confidence": "high", "notes": "Must match Allocation Engine and Indirect & Land Pools community spelling."},
+            {"name": "Phase", "io": "input", "source_system": "manual_or_clickup", "source_field": "phase_identifier", "grain": "phase", "required": true, "confidence": "high"},
+            {"name": "Job Id", "io": "input", "source_system": "qbd", "source_field": "job_id", "grain": "phase", "required": false, "confidence": "medium", "notes": "Sparse — only ~30% of phases have Job Id today. Empty for unbudgeted phases."},
+            {"name": "Lot Type", "io": "input", "source_system": "clickup", "source_field": "lot_type", "grain": "phase_x_lot_type", "required": true, "confidence": "high", "enum_observed": ["SFR", "TH", "MF", "Comm", "Church", "Open"]},
+            {"name": "Lots (LotData)", "io": "input", "source_system": "landdev_lotdata", "source_field": "lot_count", "grain": "phase_x_lot_type", "required": true, "confidence": "high", "notes": "Populated for all observed rows."},
+            {"name": "Lots (Manual Input)", "io": "input", "source_system": "manual", "source_field": null, "grain": "phase_x_lot_type", "required": false, "confidence": "low", "notes": "EMPTY for every observed row. Tie-Out check expects this to match LotData."},
+            {"name": "Tie-Out", "io": "computed", "formula": "Lots (LotData) - Lots (Manual Input)", "grain": "phase_x_lot_type", "expected_value": 0, "notes": "Currently equals LotData because Manual Input is empty — masking the check."},
+            {"name": "Avg Projected Sales Price", "io": "input", "source_system": "manual", "source_field": null, "grain": "phase_x_lot_type", "required": true, "confidence": "low", "notes": "EMPTY for every observed row. This is the master blocker for Allocation Engine sales-basis computation."},
+            {"name": "Total Projected Sales", "io": "computed", "formula": "Lots (Manual Input) * Avg Projected Sales Price", "grain": "phase_x_lot_type", "current_value_observed": "$0 for every row", "notes": "Drives Sales Basis % on Allocation Engine."}
+          ],
+          "io_classification": "input"
+        },
+        {
+          "sheet_name": "Indirect & Land Pools",
+          "csv_basename": "Flagship Allocation Workbook v3.xlsx - Indirect & Land Pools.csv",
+          "role": "input_pool_budgets",
+          "primary_key": ["Type", "Community", "Job Id"],
+          "row_count_data": 26,
+          "row_count_blanks_for_new": 8,
+          "columns": [
+            {"name": "Type", "io": "input", "source_system": "manual", "source_field": null, "grain": "pool", "required": true, "enum": ["INDIRECT", "LAND"]},
+            {"name": "Community", "io": "input", "source_system": "manual_or_clickup", "source_field": "subdivision", "grain": "community", "required": true, "confidence": "high"},
+            {"name": "Job Id", "io": "input", "source_system": "qbd", "source_field": "job_id", "grain": "job", "required": true, "confidence": "high"},
+            {"name": "Job Name", "io": "input", "source_system": "qbd", "source_field": "job_name", "grain": "job", "required": true, "confidence": "high"},
+            {"name": "Current Budget (LandDev)", "io": "input", "source_system": "landdev", "source_field": "current_budget", "grain": "job", "required": true, "confidence": "high"},
+            {"name": "Budget Override", "io": "input", "source_system": "manual", "source_field": null, "grain": "job", "required": false, "confidence": "low", "notes": "Blue-fill cell. Used when LandDev budget is wrong/missing. EMPTY for every observed row."},
+            {"name": "Effective Budget", "io": "computed", "formula": "IF(Budget Override blank, Current Budget (LandDev), Budget Override)", "grain": "job", "notes": "Feeds Allocation Engine via SUMIFS on Community."}
+          ],
+          "io_classification": "input"
+        },
+        {
+          "sheet_name": "Allocation Engine",
+          "csv_basename": "Flagship Allocation Workbook v3.xlsx - Allocation Engine.csv",
+          "role": "calculation_engine",
+          "primary_key": ["Community", "Phase", "Lot Type"],
+          "row_count": 80,
+          "columns": [
+            {"name": "Community", "io": "input_link", "links_to": "Lot Mix & Pricing.Community"},
+            {"name": "Phase", "io": "input_link", "links_to": "Lot Mix & Pricing.Phase"},
+            {"name": "Job Id", "io": "input_link", "links_to": "Lot Mix & Pricing.Job Id"},
+            {"name": "Lot Type", "io": "input_link", "links_to": "Lot Mix & Pricing.Lot Type"},
+            {"name": "Total Proj Sales", "io": "computed", "formula": "lookup from Lot Mix & Pricing.Total Projected Sales for (Community, Phase, Lot Type)", "current_value_observed": "$0 across the board"},
+            {"name": "Sales Basis % (Community)", "io": "computed", "formula": "Total Proj Sales / SUM(Total Proj Sales WHERE Community = this.Community)", "current_value_observed": "0.0% across the board"},
+            {"name": "Community Indirect Pool", "io": "computed", "formula": "SUMIFS(Indirect & Land Pools.Effective Budget, Type=INDIRECT, Community=this.Community)", "currently_populated_for": ["Arrowhead Springs $12.92M", "Ben Lomond $13.03M", "Eagle Vista (not in master)", "Harmony $3.49M", "Parkway Fields $3.62M", "Salem Fields $4.34M"]},
+            {"name": "Indirect Allocated", "io": "computed", "formula": "Community Indirect Pool * Sales Basis % (Community)", "current_value_observed": "$0 (because Sales Basis % is 0%)"},
+            {"name": "Community Land Pool", "io": "computed", "formula": "SUMIFS(Indirect & Land Pools.Effective Budget, Type=LAND, Community=this.Community)", "currently_populated_for": ["Harmony $41,388 (1-Harmony Overall job only)"]},
+            {"name": "Land Allocated", "io": "computed", "formula": "Community Land Pool * Sales Basis % (Community)", "current_value_observed": "$0"}
+          ],
+          "io_classification": "calculation",
+          "method_id": "indirect_community_by_sales_basis_pct"
+        },
+        {
+          "sheet_name": "Per-Lot Output",
+          "csv_basename": "Flagship Allocation Workbook v3.xlsx - Per-Lot Output.csv",
+          "role": "output_deliverable",
+          "primary_key": ["Community", "Phase", "Lot Type"],
+          "row_count": 80,
+          "trailing_total_row": "Row 82 (TOTAL row).",
+          "columns": [
+            {"name": "Community", "io": "output_link"},
+            {"name": "Phase", "io": "output_link"},
+            {"name": "Job Id", "io": "output_link"},
+            {"name": "Lot Type", "io": "output_link"},
+            {"name": "Lots", "io": "output_link", "links_to": "Lot Mix & Pricing.Lots (Manual Input)", "current_value_observed": "EMPTY (because Manual Input is empty)"},
+            {"name": "Direct Budget (LandDev)", "io": "input", "source_system": "landdev", "source_field": "current_budget_direct", "grain": "phase", "required": true, "confidence": "high", "currently_populated_for_phases": ["AS 1-3", "AS 4-6", "BL PH 2A", "BL PH 2B", "BL PH 2D", "Harmony A13", "Harmony A14", "Harmony B1", "Harmony B2", "Lewis Estates1", "PF E1", "PF E2", "PF G2", "SF B", "SR 02", "SR 03", "WC 1", "WC 2", "WC 3"]},
+            {"name": "Direct Budget Override", "io": "input", "source_system": "manual", "source_field": null, "grain": "phase", "required": false, "confidence": "low", "notes": "Blue-fill. EMPTY for all observed rows."},
+            {"name": "Effective Direct Budget", "io": "computed", "formula": "IF(Direct Budget Override blank, Direct Budget (LandDev), Direct Budget Override)"},
+            {"name": "Indirect Allocated", "io": "computed", "formula": "lookup from Allocation Engine for (Community, Phase, Lot Type)", "current_value_observed": "$0"},
+            {"name": "Land Allocated", "io": "computed", "formula": "lookup from Allocation Engine", "current_value_observed": "$0"},
+            {"name": "Total Cost", "io": "computed", "formula": "Effective Direct Budget + Indirect Allocated + Land Allocated"},
+            {"name": "Direct / Lot", "io": "computed", "formula": "Effective Direct Budget / Lots", "blocker": "Lots field empty"},
+            {"name": "Indirect / Lot", "io": "computed", "formula": "Indirect Allocated / Lots"},
+            {"name": "Land / Lot", "io": "computed", "formula": "Land Allocated / Lots"},
+            {"name": "Total / Lot", "io": "computed", "formula": "Total Cost / Lots"}
+          ],
+          "io_classification": "output",
+          "missing_columns_vs_canonical_per_lot_output": ["Water Allocated", "Warranty Allocated", "Sales Price / Lot", "Margin / Lot", "Margin %"]
+        }
+      ]
+    },
+
+    "pf_satellite_v_2025_10": {
+      "role": "per_community_compute_workbook",
+      "scope": "Parkway Fields only",
+      "computation_state": "computation_ready_for_remaining_sales",
+      "as_of": "2025-10-31",
+      "covers_phases": {
+        "previous_sales_allocations": ["B2 SFR (72 + 51)", "D1 SFR (127 + 31)", "G1 Church (1)"],
+        "remaining_sales_allocations": ["D2 SFR (30 + 52)", "E1 SFR (173 + 25)", "E2 SFR (76)", "F SFR (61)", "G1 SFR (63)", "G1 Comm (1)", "G2 SFR (145)", "H SFR (248)"]
+      },
+      "sheets": [
+        {
+          "sheet_name": "PF",
+          "csv_basename": "Parkway Allocation 2025.10.xlsx - PF.csv",
+          "role": "summary_budget_allocation_in_one_sheet",
+          "structure": "Three vertically stacked sections: (1) Summary per lot — Previous and Remaining Sales/Allocations with cost/lot, sales/lot, margin; (2) Budgeting — by Phase x {Directs, Land, Indirects} with side-by-side LandDev vs QBPLJ/QBBSJ/QBGL actuals and an Adj/Base column; (3) Allocation — per (Phase, ProdType, Lots) with explicit Sales, Cost-of-{land,direct,water,indirects}, Total cost, Margin, PRSV%, CRSV% and Allocation 1-10 columns tying to GL transactions.",
+          "primary_key_summary_section": ["Section (Previous|Remaining)", "Phase", "ProdType"],
+          "key_columns_per_lot": ["Phase", "ProdType", "Lots", "Sales (per lot)", "Cost of land (per lot)", "Cost of direct dev (per lot)", "Cost of water (per lot)", "Cost of indirects (per lot)", "Total cost (per lot)", "Margin (per lot)", "Margin %"],
+          "key_columns_budgeting": ["Phase", "Source=LandDev: Orig Budget / Curr Budget / Actuals", "Source=QB: Actuals (PLJ / BSJ / GL)", "Adj", "Base = effective rolled-up budget", "Comments"],
+          "key_columns_allocation_section": ["Phase", "ProdType", "Lots", "Sales total", "Cost-of-{land,direct,water,indirects} total", "Total cost", "Margin", "Margin %", "Assumed Price/Lot", "Ext. Sales Price", "PRSV% (project remaining sales value share)", "CRSV% (community remaining sales value share)", "Allocation 1..10 (tie to GL transactions)"],
+          "io_classification": "input+computed+output combined",
+          "ratified": true
+        },
+        {
+          "sheet_name": "JCSList",
+          "csv_basename": "Parkway Allocation 2025.10.xlsx - JCSList.csv",
+          "role": "qbd_job_directory_with_budget_actuals",
+          "structure": "List of QBD jobs across all DevCo entities (Tab field). Per-job: Project, Phase, QB Job, Orig Budget, LAND ACQUISITION (1010), INTEREST EXPENSE (3020), Adj Budget, ITD Actuals. Plus an 'Adj' block and 'Previous' block on the right for delta analysis between pulls.",
+          "primary_key": ["Tab (entity)", "Project (community)", "Phase", "QB Job"],
+          "tabs_observed": ["ASD", "BCPBL", "BCPDev", "BCPI"],
+          "key_columns": ["Current (concatenated job path)", "Tab", "Project", "Phase", "QB Job", "Orig Budget", "1010 LAND ACQUISITION", "3020 INTEREST EXPENSE", "Orig Budget2", "Adj Budget", "ITD Actuals"],
+          "io_classification": "input",
+          "notes": "When Phase is 'Mapping needed' or QB Job is 'Mapping needed', the row blocks downstream allocation for that phase. v0.2 must surface the Mapping needed count per community as a readiness signal."
+        },
+        {
+          "sheet_name": "AAJ",
+          "csv_basename": "Parkway Allocation 2025.10.xlsx - AAJ.csv",
+          "role": "secondary_actuals_or_account_breakdown",
+          "io_classification": "input",
+          "notes": "Likely Actuals/Adjustments by Job. Format mirrors LH satellite. Not directly required for v0.2 per-lot compute; included in schema for future use."
+        }
+      ]
+    },
+
+    "lh_satellite_v_2025_10": {
+      "role": "per_community_compute_workbook",
+      "scope": "Lomond Heights (Ben Lomond) primary; PLJ tab carries Harmony slice; BCPBL SB tab carries Ben Lomond balance sheet",
+      "computation_state": "framework_loaded_with_errors",
+      "computation_state_reason": "Direct budgets, raw land basis ($34.4M), and assumed prices ($150K SFR / $110K TH / $80K MF / $5.7M Comm) are populated, but Indirect cost-of and Sales/Margin formulas resolve to #ERROR! across the Allocation section. Indirects pool shows Capitalized Interest as #ERROR!. v0.2 should flag LH as 'inputs partial — cannot replicate workbook'.",
+      "as_of": "2025-10",
+      "sheets": [
+        {
+          "sheet_name": "LH",
+          "csv_basename": "LH Allocation 2025.10.xlsx - LH.csv",
+          "role": "summary_budget_allocation_in_one_sheet",
+          "structure": "Same three-section pattern as PF tab (Summary per lot, Budgeting, Allocation). Phases observed: 1 Open, 2A SFR/TH, 2B SFR/TH, 2C SFR/TH, 2D SFR, 3 Comm, 4 Open, 5 MF, 6A/6B/6C SFR.",
+          "io_classification": "input+computed+output combined",
+          "errors_present": ["#ERROR! in Indirects total", "#ERROR! in Sales/Margin formula chain", "Capitalized Interest unresolved"]
+        },
+        {
+          "sheet_name": "PLJ",
+          "csv_basename": "LH Allocation 2025.10.xlsx - PLJ.csv",
+          "role": "qbd_profit_loss_by_job_extract",
+          "structure": "Standard QBD P&L by Job pivot. Columns are jobs (Harmony A4.1, B1, B2, B3, Clubhouse, MF1, MF2, Plat 4-14, Nathan, Waddell). Rows are P&L line items: Income (Proceeds from Land Sale, Lot Sales), COGS line items by trade (Earthwork, Engineering, Excavation, etc.), Expenses (Warranty Expense, Basis of Lots Sold, Marketing).",
+          "scope_observed": "Harmony jobs only (despite being in LH workbook — likely a copy/embed error or shared ref).",
+          "io_classification": "input",
+          "key_lookup": "Used by satellite Budgeting section's QBPLJ Actuals column."
+        },
+        {
+          "sheet_name": "BSJ",
+          "csv_basename": "LH Allocation 2025.10.xlsx - BSJ.csv",
+          "role": "qbd_balance_sheet_by_job_extract",
+          "scope_observed": "Salem Fields balance sheet (similar embed-mismatch as PLJ). Per-job columns: 750 North Improvements, Offsite Sewer, Salem Nature Park, Salem Phase 1, Salem Phase 2, Salem Phase 3, Salem Water Tank, Salem - Other.",
+          "key_rows_observed": ["12100 Inventory Asset (per phase)", "WIP", "Bonds", "Warranty Reserve"],
+          "io_classification": "input",
+          "key_lookup": "Used by satellite Budgeting section's QBBSJ Actuals column."
+        },
+        {
+          "sheet_name": "BCPBL SB",
+          "csv_basename": "LH Allocation 2025.10.xlsx - BCPBL SB.csv",
+          "role": "qbd_balance_sheet_by_job_for_bcpbl",
+          "scope_observed": "Ben Lomond balance sheet. Per-phase columns: Offsites, Phase 2A, Phase 2B, Phase 2D plus a No-name catch-all.",
+          "key_rows_observed": ["12100 Inventory Asset", "Ben Lomond 116.39 acres ($34.37M)", "Retention Payable", "NP - BLV Property Owners LLC ($29.32M)", "Utah City Contribution"],
+          "io_classification": "input"
+        },
+        {
+          "sheet_name": "AAJ",
+          "csv_basename": "LH Allocation 2025.10.xlsx - AAJ.csv",
+          "role": "loan_amortization_summary",
+          "structure": "Sundance Bay loan terms (Principal $29,316,245.79, 8.000%, 30/360, Loan date 12/30/2024, Maturity 12/30/2026) plus 24-period amortization table.",
+          "errors_present": ["Effective int. rate #ERROR!", "Per-period interest #ERROR!"],
+          "io_classification": "input",
+          "notes": "Drives Capitalized Interest line in Indirects pool. Errors here cascade to LH Indirect total."
+        },
+        {
+          "sheet_name": "JCSList",
+          "csv_basename": "LH Allocation 2025.10.xlsx - JCSList.csv",
+          "role": "qbd_job_directory_with_budget_actuals",
+          "notes": "Identical structure and content to PF satellite JCSList. Treat as shared lookup table."
+        }
+      ]
+    }
+  },
+
+  "cross_sheet_keys": {
+    "(Community, Phase, Lot Type)": "Primary 3-tuple shared by Lot Mix & Pricing, Allocation Engine, Per-Lot Output (master).",
+    "(Tab, Project, Phase, QB Job)": "Primary 4-tuple in JCSList; Tab maps to DevCo entity.",
+    "Community": "Joins Indirect & Land Pools to Allocation Engine via SUMIFS. Naming drift between ClickUp subdivision, QBD Project, and workbook Community is the day-one crosswalk surface."
+  },
+
+  "method_to_sheet_map": {
+    "land_at_mda": {"sheets_used": ["Indirect & Land Pools (Type=LAND rows)", "Allocation Engine.Community Land Pool", "PF tab Land section", "LH tab Land section"], "ratified": true},
+    "indirect_community_by_sales_basis_pct": {"sheets_used": ["Lot Mix & Pricing", "Allocation Engine"], "ratified": true, "current_blocker": "Avg Projected Sales Price empty in Lot Mix & Pricing"},
+    "direct_per_phase": {"sheets_used": ["Per-Lot Output.Direct Budget (LandDev)", "PF tab Budgeting Directs", "LH tab Budgeting Directs"], "ratified": true},
+    "water_by_letter": {"sheets_used": ["PF tab Cost of water column", "Indirects pool entry 'Ault Water'"], "ratified": true, "current_blocker": "Master Flagship workbook has no water columns. Only satellite tabs encode water cost. Master schema must add water before LH/PF compute can roundtrip."},
+    "warranty_at_sale": {"sheets_used": ["PF tab Margin computation (warranty implicit in Cost-of-direct + Cost-of-indirects)"], "ratified": true},
+    "range_row_unratified": {"sheets_used": [], "ratified": false, "refusal_required": true, "applies_to_rows": ["Arrowhead Springs phase rows where Lot Type expands across 'AS 1-3', 'AS 4-6'-style range buckets", "Comm rows", "Open rows in LH"]}
+  },
+
+  "computation_readiness_by_community": {
+    "Parkway Fields": {"status": "compute_ready", "scope": "remaining_sales_allocations only (D2/E1/E2/F/G1/G2/H)", "source": "PF satellite tab, 2025-10-31", "caveats": ["B2 and D1 are 'Previous Sales/Allocations' — do not re-allocate", "G1 Church already allocated", "Indirect pool sums to negative ($-1,249,493.54) — workbook treats as credit; flag for accounting review"]},
+    "Lomond Heights (Ben Lomond)": {"status": "blocked_by_workbook_errors", "blockers": ["#ERROR! in Indirects total", "#ERROR! in Sales/Margin chain", "Capitalized Interest unresolved (AAJ effective rate #ERROR!)"], "source": "LH satellite tab, 2025-10"},
+    "Arrowhead Springs": {"status": "spec_only", "blockers": ["No sales pricing in master", "Range-row method unratified for AS 1-3 / AS 4-6 phases"]},
+    "Harmony": {"status": "spec_only", "blockers": ["No sales pricing in master", "PLJ embed in LH workbook is the only QBD actuals visible — needs canonical BCPDev PLJ pull"]},
+    "Salem Fields": {"status": "spec_only", "blockers": ["No sales pricing in master", "BSJ embed in LH workbook only — needs canonical Salem BSJ pull"]},
+    "Scarlet Ridge": {"status": "spec_only", "blockers": ["No sales pricing in master"]},
+    "Willowcreek": {"status": "spec_only", "blockers": ["No sales pricing in master"]},
+    "Lewis Estates": {"status": "spec_only", "blockers": ["No sales pricing in master"]},
+    "Eagle Vista": {"status": "spec_only", "blockers": ["Not present in master Allocation Engine; only in JCSList and Indirect pool entries"]},
+    "Hillcrest": {"status": "out_of_scope_v0_2", "reason": "Org-wide GL coverage post-2017-02 deferred per PROJECT_STATE rules."},
+    "Flagship Belmont": {"status": "out_of_scope_v0_2", "reason": "Org-wide GL coverage post-2017-02 deferred per PROJECT_STATE rules."}
+  },
+
+  "open_questions_for_source_owner": [
+    "Confirm naming: Flagship_Allocation_Workbook 08.xlsm (referenced) vs Flagship Allocation Workbook v3 (in repo). Are v8 sheet names/cols unchanged from v3?",
+    "Where is BCPDev PLJ 2026.03.31.CSV? Is the LH-embedded Harmony PLJ extract an authoritative slice or a stale copy?",
+    "Are JCS BCPD.xlsm and JCS ASD.xlsm the same content as the per-Tab slices of JCSList in the satellite workbooks?",
+    "Master Flagship v3 lacks Water and Warranty columns. Are these intentionally only at the satellite level, or should master add them?",
+    "PF Indirect total is negative ($-1.25M). Confirm sign convention (credit balance vs. error)."
+  ],
+
+  "version_history": [
+    {"version": "v1", "date": "2026-05-11", "author": "Agent B", "notes": "Initial schema derived from Flagship v3 + LH/PF satellite 2025.10. Pending v8 macro-free .xlsx supply."}
+  ]
+}
