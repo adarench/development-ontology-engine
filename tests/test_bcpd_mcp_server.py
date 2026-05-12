@@ -56,12 +56,20 @@ if MCP_AVAILABLE:
 
 
 EXPECTED_TOOL_NAMES = {
+    # v2.1 BCPD operating-state tools (unchanged)
     "generate_project_brief",
     "review_margin_report_readiness",
     "find_false_precision_risks",
     "summarize_change_impact",
     "prepare_finance_land_review",
     "draft_owner_update",
+    # v0.2 BCP Dev forward-looking process tools (new in PR 4)
+    "query_bcp_dev_process",
+    "explain_allocation_logic",
+    "validate_crosswalk_readiness",
+    "check_allocation_readiness",
+    "detect_accounting_events",
+    "generate_per_lot_output_spec",
 }
 
 PROTECTED_PATHS = (
@@ -116,9 +124,12 @@ def test_server_name(server):
 
 
 def test_server_registers_six_tools(server):
+    # Now twelve: six v2.1 BCPD + six v0.2 BCP Dev. Name preserved for
+    # back-compat with existing test plans / CI labels.
     tools = asyncio.run(server.list_tools())
     names = {t.name for t in tools}
     assert names == EXPECTED_TOOL_NAMES
+    assert len(names) == 12
 
 
 def test_each_tool_schema_is_valid_json_object(server):

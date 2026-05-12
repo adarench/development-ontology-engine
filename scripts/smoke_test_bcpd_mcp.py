@@ -22,7 +22,7 @@ import hashlib
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # Make the repo importable when this script runs from anywhere.
@@ -44,12 +44,13 @@ PROTECTED_PATHS: Tuple[str, ...] = (
 @dataclass
 class WorkflowCheck:
     tool_name: str
-    args: Dict[str, str]
+    args: Dict[str, Any]
     must_contain: List[str]
     must_not_contain: List[str] = field(default_factory=list)
 
 
 CHECKS: List[WorkflowCheck] = [
+    # --- v2.1 BCPD operating-state tools ---
     WorkflowCheck(
         tool_name="generate_project_brief",
         args={"project": "Parkway Fields"},
@@ -83,6 +84,102 @@ CHECKS: List[WorkflowCheck] = [
             "SctLot",
             "HarmCo",
             "commercial",
+        ],
+    ),
+    # --- v0.2 BCP Dev forward-looking process tools ---
+    WorkflowCheck(
+        tool_name="query_bcp_dev_process",
+        args={"question": "Why is range-row allocation refused?"},
+        must_contain=[
+            "BCP Dev v0.2",
+            "range_row_unratified",
+            "EXC-007",
+            "## Provenance",
+        ],
+    ),
+    WorkflowCheck(
+        tool_name="explain_allocation_logic",
+        args={"cost_type": "Land"},
+        must_contain=[
+            "land_at_mda",
+            "ALLOC-001",
+            "mda_execution",
+            "131-100",
+            "phase_share_usd",
+        ],
+    ),
+    WorkflowCheck(
+        tool_name="validate_crosswalk_readiness",
+        args={"scope": "all"},
+        must_contain=[
+            "Crosswalk readiness",
+            "CW-01",
+            "UNRES-01",
+            "## Provenance",
+        ],
+    ),
+    WorkflowCheck(
+        tool_name="check_allocation_readiness",
+        args={"community": "Parkway Fields", "phase": "E1"},
+        must_contain=[
+            "Allocation readiness",
+            "Parkway Fields",
+            "compute_ready",
+            "Required inputs",
+        ],
+    ),
+    WorkflowCheck(
+        tool_name="check_allocation_readiness",
+        args={"community": "Lomond Heights", "phase": "2A"},
+        must_contain=[
+            "Allocation readiness",
+            "Lomond Heights",
+            "blocked",
+            "aaj_error_cascade",
+            "AAJ",
+        ],
+    ),
+    WorkflowCheck(
+        tool_name="generate_per_lot_output_spec",
+        args={"community": "Parkway Fields", "phase": "E1"},
+        must_contain=[
+            "Per-Lot Output Spec",
+            "Parkway Fields",
+            "compute_ready",
+            "warranty_at_sale",
+            "Spec only",
+        ],
+        must_not_contain=["$0", "$1,000"],  # No numeric values emitted
+    ),
+    WorkflowCheck(
+        tool_name="detect_accounting_events",
+        args={
+            "status_changes": [
+                {
+                    "task_id": "CU-SMOKE-1",
+                    "community": "Park Way",
+                    "phase": "E1",
+                    "lot_number": "001",
+                    "status_from": "LND_RAW_LAND",
+                    "status_to": "LND_ENTITLED",
+                    "fields": {
+                        "MDA Execution Date": "2026-04-01",
+                        "Phase Identifier": "E1",
+                        "Lot Count by Type (SFR/TH/MF/Comm)": "{SFR:198}",
+                        "MDA Lot Count": 198,
+                        "Allocation Workbook Lot Count": 198,
+                        "Raw Land Basis (per Property)": 12500000,
+                    },
+                }
+            ]
+        },
+        must_contain=[
+            "Detected accounting events",
+            "mda_execution",
+            "EVENT-002",
+            "131-200",  # debit account
+            "Parkway Fields",  # community resolved via CW-01
+            "detection only",
         ],
     ),
 ]
