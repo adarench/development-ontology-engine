@@ -16,6 +16,7 @@ server. PR 3 will add the readiness tools (`validate_crosswalk_readiness`,
 from __future__ import annotations
 
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Optional
 
 from core.agent.bcp_dev_context import BcpDevContext, OUT_OF_SCOPE_COMMUNITIES
@@ -1963,6 +1964,608 @@ class GeneratePerLotOutputSpecTool(Tool):
 
 
 # ---------------------------------------------------------------------------
+# Tool 7: replicate_pf_satellite_per_lot_output (PR 5a)
+# ---------------------------------------------------------------------------
+
+
+# Default PF satellite source path, relative to repo root. Tests / smoke can
+# override via the tool's constructor.
+_PF_SATELLITE_REL = (
+    "data/raw/datarails_unzipped/phase_cost_starter/"
+    "Parkway Allocation 2025.10.xlsx - PF.csv"
+)
+
+# Phase labels the tool will return / accept as input.
+_PF_REMAINING_PHASE_LABELS = (
+    "D2", "E1", "E2", "F", "G1 SFR", "G1 Comm", "G2", "H",
+)
+_PF_PREVIOUS_PHASE_LABELS = ("B2", "D1", "G1 Church")
+
+# Direct-base annotations observed in the PF satellite Budgeting/Directs section.
+# These come from the satellite's Comments column on each phase row and are
+# stable per the 2025-10 workbook version. If a future satellite version drifts,
+# the per-phase tie-out tests will fail and this table is updated alongside.
+_PF_DIRECT_BASE_NOTES = MappingProxyType({
+    "D2": "Actuals plus $500K per CM/BF/SH (estimated)",
+    "E1": "LD budget — authoritative ($15,579,985.58)",
+    "E2": "Estimated: $60K/lot",
+    "F":  "Estimated: $60K/lot",
+    "G1 SFR": "Estimated: $60K/lot",
+    "G1 Comm": "Estimated: $60K/lot + $300K commercial",
+    "G2": "Estimated: $60K/lot",
+    "H":  "Estimated: $60K/lot",
+})
+
+
+def _parse_money(s: str | None) -> Optional[float]:
+    """Parse a money cell from the satellite CSV. Returns None for '-', '—',
+    blanks, '#DIV/0!'. Handles parentheses-for-negative."""
+    if s is None:
+        return None
+    t = str(s).strip()
+    if t in ("", "-", "—", "#DIV/0!"):
+        return None
+    neg = t.startswith("(") and t.endswith(")")
+    t = t.strip("()").replace("$", "").replace(",", "").strip()
+    if not t or t == "-":
+        return None
+    try:
+        v = float(t)
+    except ValueError:
+        return None
+    return -v if neg else v
+
+
+def _parse_int(s: str | None) -> Optional[int]:
+    if s is None:
+        return None
+    t = str(s).strip()
+    if not t or t in ("-", "—"):
+        return None
+    try:
+        return int(t.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _phase_label_for(phase: str, lot_type: str) -> str:
+    """Compose the user-facing phase label.
+
+    G1 has three lot_types in the PF satellite (SFR, Comm, Church); other
+    phases collapse to phase alone."""
+    if phase == "G1" and lot_type in ("SFR", "Comm", "Church"):
+        return f"G1 {lot_type}"
+    return phase
+
+
+def _parse_pf_satellite(path: Path) -> dict:
+    """Parse `Parkway Allocation 2025.10.xlsx - PF.csv`.
+
+    Returns a dict with keys:
+        summary_previous, summary_remaining: list[dict] — per-lot rows
+        alloc_previous, alloc_remaining: list[dict] — extended rows w/ PRSV%/CRSV%/Allocation cols
+        community_land_pool, community_indirects_pool: floats
+        source_path: str
+        row_count: int
+
+    Each per-lot row dict carries: phase, lot_type, lots, lennar_tag,
+    sales_per_lot, cost_of_land_per_lot, cost_of_direct_per_lot,
+    cost_of_water_per_lot, cost_of_indirects_per_lot, total_cost_per_lot,
+    margin_per_lot, margin_pct, and (when joined from the Allocation section)
+    ext_sales_price, prsv_pct, crsv_pct, allocation_land_ext,
+    allocation_direct_ext, allocation_water_ext, allocation_indirects_ext.
+    """
+    import csv
+    with open(path, "r", newline="") as f:
+        all_rows = list(csv.reader(f))
+
+    summary_previous: list[dict] = []
+    summary_remaining: list[dict] = []
+    alloc_previous: list[dict] = []
+    alloc_remaining: list[dict] = []
+    community_land_pool: Optional[float] = None
+    community_indirects_pool: Optional[float] = None
+
+    # State machine. The satellite has four top-level sections:
+    #   - "Summary per lot" (per-lot values, with Previous + Remaining subsections)
+    #   - "Budgeting"       (Directs / Land / Indirects subsections; we only
+    #                        read the subsection Total rows for community pools)
+    #   - "Allocation"      (extended values + PRSV%/CRSV%/Allocation 1-10;
+    #                        Previous + Remaining subsections)
+    SUMMARY = "summary"
+    BUDGETING = "budgeting"
+    ALLOC = "alloc"
+    PREVIOUS = "previous"
+    REMAINING = "remaining"
+    DIRECTS = "directs"
+    LAND = "land"
+    INDIRECTS = "indirects"
+
+    top: Optional[str] = None
+    sub: Optional[str] = None
+
+    def _emit_row(row: list[str], top: str, sub: str) -> None:
+        phase = row[5].strip() if len(row) > 5 else ""
+        lot_type = row[6].strip() if len(row) > 6 else ""
+        lots = _parse_int(row[7]) if len(row) > 7 else None
+        if not phase or not lot_type or lots is None:
+            return
+        record: dict = {
+            "phase": phase,
+            "lot_type": lot_type,
+            "phase_label": _phase_label_for(phase, lot_type),
+            "lots": lots,
+            "lennar_tag": (row[20].strip() if len(row) > 20 else "") or None,
+            "sales_per_lot": _parse_money(row[12]) if len(row) > 12 else None,
+            "cost_of_land_per_lot": _parse_money(row[13]) if len(row) > 13 else None,
+            "cost_of_direct_per_lot": _parse_money(row[14]) if len(row) > 14 else None,
+            "cost_of_water_per_lot": _parse_money(row[15]) if len(row) > 15 else None,
+            "cost_of_indirects_per_lot": _parse_money(row[16]) if len(row) > 16 else None,
+            "total_cost_per_lot": _parse_money(row[17]) if len(row) > 17 else None,
+            "margin_per_lot": _parse_money(row[18]) if len(row) > 18 else None,
+            "margin_pct": (row[19].strip() if len(row) > 19 else "") or None,
+        }
+        if top == ALLOC:
+            # Sales/Land/Direct/Water/Indirects columns at 12-17 are *extended*
+            # in this section (not per-lot). Rename for clarity.
+            record["ext_sales_via_summary_cells"] = record.pop("sales_per_lot")
+            record["ext_cost_of_land"] = record.pop("cost_of_land_per_lot")
+            record["ext_cost_of_direct"] = record.pop("cost_of_direct_per_lot")
+            record["ext_cost_of_water"] = record.pop("cost_of_water_per_lot")
+            record["ext_cost_of_indirects"] = record.pop("cost_of_indirects_per_lot")
+            record["ext_total_cost"] = record.pop("total_cost_per_lot")
+            record["ext_margin"] = record.pop("margin_per_lot")
+            record["assumed_price_per_lot"] = _parse_money(row[22]) if len(row) > 22 else None
+            record["ext_sales_price"] = _parse_money(row[23]) if len(row) > 23 else None
+            record["prsv_pct"] = (row[24].strip() if len(row) > 24 else "") or None
+            record["crsv_pct"] = (row[25].strip() if len(row) > 25 else "") or None
+            record["allocation_land_ext"] = _parse_money(row[27]) if len(row) > 27 else None
+            record["allocation_direct_ext"] = _parse_money(row[28]) if len(row) > 28 else None
+            record["allocation_water_ext"] = _parse_money(row[29]) if len(row) > 29 else None
+            record["allocation_indirects_ext"] = _parse_money(row[30]) if len(row) > 30 else None
+        target_bucket = {
+            (SUMMARY, PREVIOUS): summary_previous,
+            (SUMMARY, REMAINING): summary_remaining,
+            (ALLOC, PREVIOUS): alloc_previous,
+            (ALLOC, REMAINING): alloc_remaining,
+        }[(top, sub)]
+        target_bucket.append(record)
+
+    for row in all_rows:
+        # Pad short rows to at least 31 cells for safe indexing.
+        if len(row) < 31:
+            row = row + [""] * (31 - len(row))
+
+        col3 = row[3].strip()
+        col4 = row[4].strip()
+        col5 = row[5].strip()
+        col_low4 = col4.lower()
+
+        # Top-level section detection (column 3).
+        if col3.lower() == "summary per lot":
+            top, sub = SUMMARY, None
+            continue
+        if col3.lower() == "budgeting":
+            top, sub = BUDGETING, None
+            continue
+        if col3.lower() == "allocation":
+            top, sub = ALLOC, None
+            continue
+
+        # Subsection detection (column 4).
+        if top == BUDGETING and col_low4 == "directs":
+            sub = DIRECTS
+            continue
+        if top == BUDGETING and col4 == "Land":
+            sub = LAND
+            continue
+        if top == BUDGETING and col4 == "Indirects":
+            sub = INDIRECTS
+            continue
+        if col_low4 == "previous sales/allocations":
+            sub = PREVIOUS
+            continue
+        if col_low4 == "remaining sales/allocations":
+            sub = REMAINING
+            continue
+
+        # Budgeting subsection totals — capture community pools from the
+        # subsection's "Total" row.
+        if top == BUDGETING and col5 == "Total":
+            total_19 = _parse_money(row[19]) if len(row) > 19 else None
+            if sub == LAND and community_land_pool is None and total_19 is not None:
+                community_land_pool = total_19
+            elif sub == INDIRECTS and community_indirects_pool is None and total_19 is not None:
+                community_indirects_pool = total_19
+            # Directs Total is intentionally ignored — it's not a community pool.
+            continue
+
+        # Subtotal sentinel rows in Summary / Allocation sections.
+        if col5.lower() in {
+            "previously sold/allocated",
+            "remaining sales/allocations",
+            "total",
+        }:
+            continue
+
+        # Data rows: only inside Summary or Allocation top sections, with a
+        # subsection set.
+        if top in (SUMMARY, ALLOC) and sub in (PREVIOUS, REMAINING):
+            _emit_row(row, top, sub)
+
+    return {
+        "summary_previous": tuple(summary_previous),
+        "summary_remaining": tuple(summary_remaining),
+        "alloc_previous": tuple(alloc_previous),
+        "alloc_remaining": tuple(alloc_remaining),
+        "community_land_pool": community_land_pool,
+        "community_indirects_pool": community_indirects_pool,
+        "source_path": str(path),
+        "row_count": len(all_rows),
+    }
+
+
+class ReplicatePfSatellitePerLotOutputTool(Tool):
+    """PR 5a — PF satellite workbook read-through. **Not authoritative compute.**
+
+    Reads per-lot values directly from the Parkway Fields satellite workbook
+    CSV. No computation. No formula derivation. Refuses Previous-section
+    phases, non-PF communities, warranty cells, and anything not present in
+    the satellite.
+    """
+
+    output_format = "markdown"
+    name = "replicate_pf_satellite_per_lot_output"
+    description = (
+        "[BCP Dev v0.2 — PF satellite workbook replication] **PF only — "
+        "read-through replication, NOT authoritative compute.** Reads "
+        "per-lot values directly from Parkway Allocation 2025.10 satellite "
+        "workbook. Returns one row per (phase, lot_type) for PF Remaining "
+        "phases (D2, E1, E2, F, G1 SFR, G1 Comm, G2, H). Refuses: "
+        "Previous-section phases (B2, D1, G1 Church — historical/closed), "
+        "all non-PF communities (point at `generate_per_lot_output_spec`), "
+        "range rows, warranty cells (warranty_rate_unratified). Preserves "
+        "PR 4.5 caveats: sales-basis workbook-observed but Q23 ratification "
+        "still pending; negative-Indirects sign convention; estimated "
+        "Direct Base on E2/F/G1/G2/H; MDA Day three-way tie not validated."
+    )
+
+    def __init__(
+        self,
+        context: BcpDevContext | None = None,
+        satellite_path: Path | str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._ctx = context or BcpDevContext()
+        self._satellite_path_override = (
+            Path(satellite_path) if satellite_path else None
+        )
+        self._parsed_cache: Optional[dict] = None
+
+    def input_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "community": {
+                    "type": "string",
+                    "description": (
+                        "Optional. Tool is PF only — non-PF communities are "
+                        "refused with a pointer to `generate_per_lot_output_spec`."
+                    ),
+                },
+                "phase": {
+                    "type": "string",
+                    "description": (
+                        "Optional phase identifier. PF Remaining: D2, E1, "
+                        "E2, F, G1 SFR, G1 Comm, G2, H. Default: all "
+                        "Remaining phases. Previous-section (B2, D1, "
+                        "G1 Church) is refused."
+                    ),
+                },
+            },
+            "required": [],
+        }
+
+    # ------------------------------------------------------------------
+
+    def _satellite_path(self) -> Path:
+        if self._satellite_path_override:
+            return self._satellite_path_override
+        return self._ctx.repo_root / _PF_SATELLITE_REL
+
+    def _parsed(self) -> dict:
+        if self._parsed_cache is None:
+            self._parsed_cache = _parse_pf_satellite(self._satellite_path())
+        return self._parsed_cache
+
+    def run(
+        self,
+        data: Any = None,
+        community: str = "Parkway Fields",
+        phase: str = "",
+        **kwargs: Any,
+    ) -> str:
+        if isinstance(data, dict):
+            community = community or data.get("community", "Parkway Fields") or "Parkway Fields"
+            phase = phase or data.get("phase", "")
+        community = (community or kwargs.get("community") or "Parkway Fields").strip()
+        phase = (phase or kwargs.get("phase") or "").strip()
+
+        # Refusal: non-PF community.
+        if community and community != "Parkway Fields":
+            return self._refuse_non_pf(community)
+
+        # Refusal: explicitly-asked Previous-section phase.
+        if phase in _PF_PREVIOUS_PHASE_LABELS:
+            return self._refuse_previous_section(phase)
+
+        # If a specific phase is asked, validate it.
+        if phase and phase not in _PF_REMAINING_PHASE_LABELS:
+            return self._refuse_unknown_phase(phase)
+
+        # Load + filter.
+        path = self._satellite_path()
+        if not path.exists():
+            return (
+                f"**ERROR**: PF satellite CSV not found at `{path}`. "
+                "This tool is read-through; without the satellite file it "
+                "cannot proceed."
+            )
+        parsed = self._parsed()
+        remaining_rows = list(parsed["summary_remaining"])
+        alloc_by_key = {
+            (r["phase"], r["lot_type"], r["lots"]): r
+            for r in parsed["alloc_remaining"]
+        }
+
+        if phase:
+            remaining_rows = [
+                r for r in remaining_rows if r["phase_label"] == phase
+            ]
+            if not remaining_rows:
+                return self._refuse_phase_not_in_satellite(phase)
+
+        return self._render(remaining_rows, alloc_by_key, parsed, community, phase)
+
+    # ------------------------------------------------------------------
+    # Refusal renderers
+    # ------------------------------------------------------------------
+
+    def _refuse_non_pf(self, community: str) -> str:
+        return (
+            _scope_header()
+            + "# Refusal — non-PF community\n\n"
+            + "**NOT authoritative compute — PF satellite workbook replication.**\n\n"
+            + f"This tool replicates the **Parkway Fields satellite workbook** "
+              f"only. Community `{community}` is out of scope. For a spec-only "
+              "view of any community/phase, call `generate_per_lot_output_spec` "
+              "instead.\n\n"
+            + _provenance_block(
+                self._ctx,
+                (),
+                extra_notes=[
+                    "Scope: PF satellite read-through only. Non-PF communities "
+                    "are refused by design.",
+                ],
+            )
+        )
+
+    def _refuse_previous_section(self, phase: str) -> str:
+        return (
+            _scope_header()
+            + f"# Refusal — phase `{phase}` is historical/closed\n\n"
+            + "**NOT authoritative compute — PF satellite workbook replication.**\n\n"
+            + f"Phase `{phase}` is in the PF Previous Sales/Allocations section "
+              "(B2, D1, G1 Church). These are historical/closed; re-replaying "
+              "their values risks corrupting the closed allocation record. "
+              "The tool refuses to emit Previous-section rows.\n\n"
+            + "Allowed phases (PF Remaining): "
+            + ", ".join(f"`{p}`" for p in _PF_REMAINING_PHASE_LABELS)
+            + ".\n\n"
+            + _provenance_block(
+                self._ctx,
+                (),
+                extra_notes=[
+                    "Previous-section refusal: PF B2, D1, G1 Church are "
+                    "historical/closed per allocation_workbook_schema_v1.json "
+                    "and per_lot_output_schema_v1.json#section_model.",
+                ],
+            )
+        )
+
+    def _refuse_unknown_phase(self, phase: str) -> str:
+        return (
+            _scope_header()
+            + f"# Refusal — phase `{phase}` not recognised\n\n"
+            + "**NOT authoritative compute — PF satellite workbook replication.**\n\n"
+            + f"`{phase}` is not a recognised PF satellite phase. Allowed: "
+            + ", ".join(f"`{p}`" for p in _PF_REMAINING_PHASE_LABELS)
+            + ".\n\n"
+            + _provenance_block(self._ctx, ())
+        )
+
+    def _refuse_phase_not_in_satellite(self, phase: str) -> str:
+        return (
+            _scope_header()
+            + f"# Refusal — phase `{phase}` not found in satellite\n\n"
+            + "**NOT authoritative compute — PF satellite workbook replication.**\n\n"
+            + f"The PF satellite Summary per lot section does not contain a "
+              f"row for `{phase}`. The satellite may have been refreshed; "
+              "re-run after staging the new export.\n\n"
+            + _provenance_block(self._ctx, ())
+        )
+
+    # ------------------------------------------------------------------
+    # Successful response
+    # ------------------------------------------------------------------
+
+    def _render(
+        self,
+        rows: list[dict],
+        alloc_by_key: dict[tuple, dict],
+        parsed: dict,
+        community: str,
+        phase_filter: str,
+    ) -> str:
+        out: list[str] = [_scope_header()]
+        out.append(
+            "# Parkway Fields — Per-Lot Output (PF Satellite Replication)\n\n"
+        )
+        out.append(
+            "> **NOT authoritative compute — PF satellite workbook replication.** "
+            "Values are read directly from "
+            "`data/raw/datarails_unzipped/phase_cost_starter/"
+            "Parkway Allocation 2025.10.xlsx - PF.csv`. No computation, no "
+            "formula derivation. PR 5 (canonical `generate_per_lot_output`) "
+            "remains gated on Q23 ratification + master pricing staged + "
+            "ClickUp lot-count pull.\n\n"
+        )
+
+        # Per-row table
+        out.append(
+            "| Community | Phase | Lot Type | Lots | Sales/lot | Ext sales | "
+            "Land/lot | Direct/lot | Water/lot | Indirects/lot | "
+            "Total cost/lot | Margin/lot | Margin % | Warranty/lot | "
+            "Alloc-Land ext | Alloc-Direct ext | Alloc-Water ext | "
+            "Alloc-Indirects ext | Direct Base note |\n"
+            "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+            "---:|---:|---:|---:|---:|---|\n"
+        )
+        for r in rows:
+            alloc = alloc_by_key.get((r["phase"], r["lot_type"], r["lots"])) or {}
+            tag = f" ({r['lennar_tag']})" if r.get("lennar_tag") else ""
+            phase_disp = f"{r['phase_label']}{tag}"
+            out.append(
+                "| "
+                + " | ".join(
+                    str(x) for x in (
+                        community,
+                        phase_disp,
+                        r["lot_type"],
+                        r["lots"],
+                        _fmt_money(r.get("sales_per_lot")),
+                        _fmt_money(alloc.get("ext_sales_price")),
+                        _fmt_money(r.get("cost_of_land_per_lot")),
+                        _fmt_money(r.get("cost_of_direct_per_lot")),
+                        _fmt_money(r.get("cost_of_water_per_lot")),
+                        _fmt_money(r.get("cost_of_indirects_per_lot")),
+                        _fmt_money(r.get("total_cost_per_lot")),
+                        _fmt_money(r.get("margin_per_lot")),
+                        r.get("margin_pct") or "—",
+                        "**refused** (warranty_rate_unratified)",
+                        _fmt_money(alloc.get("allocation_land_ext")),
+                        _fmt_money(alloc.get("allocation_direct_ext")),
+                        _fmt_money(alloc.get("allocation_water_ext")),
+                        _fmt_money(alloc.get("allocation_indirects_ext")),
+                        _PF_DIRECT_BASE_NOTES.get(r["phase_label"], "—"),
+                    )
+                )
+                + " |\n"
+            )
+
+        # Caveats block — every required caveat from PR 5a spec.
+        out.append("\n## Required caveats\n\n")
+        out.append(
+            "1. **Sales-basis weighting is workbook-observed.** Q23 "
+            "source-owner ratification still pending. Per "
+            "`allocation_methods_v1.json#land_at_mda`, "
+            "`formula_status = workbook_observed_pending_source_owner_ratification`.\n"
+        )
+        ind = parsed.get("community_indirects_pool")
+        ind_str = _fmt_money(ind) if ind is not None else "$(1,249,493.54)"
+        out.append(
+            f"2. **Negative Indirects sign convention.** Community pool = "
+            f"{ind_str}. The satellite treats the Indirects pool as a credit "
+            "balance; per-lot Cost-of-indirects values may render positive in "
+            "the Summary section while extended values are negative in the "
+            "Allocation section.\n"
+        )
+        out.append(
+            "3. **Estimated Direct Base.** E2/F/G2/H carry `Est. $60K/lot`; "
+            "G1 SFR carries `Est. $60K/lot`; G1 Comm carries `Est. $60K + $300K "
+            "commercial`; D2 carries `Actuals plus $500K per CM/BF/SH`; E1 "
+            "has the authoritative LD budget ($15,579,985.58).\n"
+        )
+        out.append(
+            "4. **Water = $0** for every PF Remaining row. The PF satellite "
+            "does not carry a non-zero water column for Remaining; water cost "
+            "is included in the Indirects pool (`Ault Water $702,262`) rather "
+            "than allocated as a separate per-phase column.\n"
+        )
+        out.append(
+            "5. **Warranty refused per cell.** The PF satellite does not "
+            "model warranty. Warranty rate (Q5) and pool source (UNRES-07) "
+            "remain unratified; tools must not fabricate a $0 warranty.\n"
+        )
+        out.append(
+            "6. **Previous-section phases refused** (B2, D1, G1 Church). "
+            "Historical/closed; re-replaying would corrupt the closed "
+            "allocation record.\n"
+        )
+        out.append(
+            "7. **MDA Day three-way tie not validated.** ClickUp lot-count "
+            "pull is missing; only LandDev workbook and PF satellite counts "
+            "are available. Tool emits the satellite values regardless but "
+            "surfaces this caveat so the operator knows the MDA Day hard "
+            "gate cannot run today.\n"
+        )
+        out.append(
+            "8. **Non-PF communities refused.** For spec-only views of other "
+            "communities, call `generate_per_lot_output_spec` instead.\n"
+        )
+        out.append(
+            "9. **Range rows refused.** Range-row method is unratified per "
+            "`exception_rules_v1.json#EXC-007`. Not applicable to PF phases.\n"
+        )
+
+        # Provenance block.
+        path_str = str(self._satellite_path())
+        rel_path = path_str
+        if str(self._ctx.repo_root) in path_str:
+            rel_path = path_str.replace(str(self._ctx.repo_root) + "/", "")
+        try:
+            mtime = self._satellite_path().stat().st_mtime
+            from datetime import datetime
+            mtime_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+        except OSError:
+            mtime_str = "—"
+        out.append("\n## Provenance\n\n")
+        out.append(f"- **Source file:** `{rel_path}`\n")
+        out.append(f"- **File last_modified:** {mtime_str}\n")
+        out.append(f"- **CSV rows read:** {parsed['row_count']}\n")
+        out.append(
+            f"- **Phase filter applied:** "
+            f"{phase_filter if phase_filter else 'all PF Remaining phases'}\n"
+        )
+        out.append(
+            "- **Read-through, not recomputed:** every value above is read "
+            "verbatim from the satellite Summary per lot and Allocation "
+            "sections. No formula derivation. No fabricated values.\n"
+        )
+        out.append(
+            "- **Underlying state files:** "
+            "`state/process_rules/allocation_methods_v1.json` "
+            "(land_at_mda: formula_status = "
+            "`workbook_observed_pending_source_owner_ratification`); "
+            "`state/bcp_dev/allocation_workbook_schema_v1.json` "
+            "(PF satellite computation_state = compute_ready for Remaining only); "
+            "`state/bcp_dev/per_lot_output_schema_v1.json` "
+            "(canonical Per-Lot Output shape).\n"
+        )
+
+        return "".join(out)
+
+
+def _fmt_money(v: Optional[float]) -> str:
+    """Format a money value for the markdown table. None / blank renders as 'null'."""
+    if v is None:
+        return "null"
+    sign = "−" if v < 0 else ""
+    return f"{sign}${abs(v):,.2f}"
+
+
+# ---------------------------------------------------------------------------
 # Registration helper
 # ---------------------------------------------------------------------------
 
@@ -1976,6 +2579,7 @@ def register_bcp_dev_workflow_tools(registry, context: BcpDevContext | None = No
     registry.register(CheckAllocationReadinessTool(context=ctx))
     registry.register(DetectAccountingEventsTool(context=ctx))
     registry.register(GeneratePerLotOutputSpecTool(context=ctx))
+    registry.register(ReplicatePfSatellitePerLotOutputTool(context=ctx))
     return registry
 
 
@@ -1986,6 +2590,7 @@ BCP_DEV_WORKFLOW_TOOLS = (
     CheckAllocationReadinessTool,
     DetectAccountingEventsTool,
     GeneratePerLotOutputSpecTool,
+    ReplicatePfSatellitePerLotOutputTool,
 )
 
 
@@ -1996,6 +2601,7 @@ __all__ = [
     "CheckAllocationReadinessTool",
     "DetectAccountingEventsTool",
     "GeneratePerLotOutputSpecTool",
+    "ReplicatePfSatellitePerLotOutputTool",
     "BCP_DEV_WORKFLOW_TOOLS",
     "register_bcp_dev_workflow_tools",
 ]

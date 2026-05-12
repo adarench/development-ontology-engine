@@ -246,6 +246,29 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
             {"community": community, "phase": phase},
         )
 
+    desc_pf_replicate = registry._tools[
+        "replicate_pf_satellite_per_lot_output"
+    ].description
+
+    @mcp.tool(
+        name="replicate_pf_satellite_per_lot_output",
+        description=desc_pf_replicate,
+    )
+    async def replicate_pf_satellite_per_lot_output(
+        community: str = "Parkway Fields",
+        phase: str = "",
+    ) -> str:
+        """PF-only read-through of the Parkway Allocation 2025.10 satellite
+        workbook. NOT authoritative compute. Refuses Previous-section phases
+        (B2, D1, G1 Church), all non-PF communities (point at
+        `generate_per_lot_output_spec`), warranty cells, and range rows.
+        Returns markdown.
+        """
+        return registry.dispatch(
+            "replicate_pf_satellite_per_lot_output",
+            {"community": community, "phase": phase},
+        )
+
 
 def main() -> None:
     """Entry point: build server and serve over stdio."""
