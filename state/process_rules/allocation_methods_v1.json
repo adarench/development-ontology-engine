@@ -47,25 +47,32 @@
         {"input": "sales_basis_pct_per_phase", "system": "allocation_workbook_engine_sheet", "type": "decimal_pct", "candidate_for": "candidate_b_sales_basis_weighted"}
       ],
       "calculation": {
-        "formula_status": "pending_source_owner_confirmation",
-        "conflict_note": "Two authoritative sources disagree on weighting. The briefing extract and process ontology describe lot-count weighting; the actual Flagship Allocation Workbook v3 formula uses sales-basis weighting. Tools must not present a single confident formula until the source owner ratifies. This conflict surfaced during the BCP Dev v0.2 MCP Desktop trial (2026-05-11).",
-        "candidate_a_lot_count_weighted": {
-          "phase_share_usd": "raw_land_basis_per_property * (lot_count_in_phase / lot_count_total_property)",
-          "per_lot_share_usd": "phase_share_usd / lot_count_in_phase",
-          "source": "briefing extract; docs/bcp_dev_process_ontology_v1.md; docs/bcp_dev_allocation_accounting_tool_family_plan.md"
-        },
-        "candidate_b_sales_basis_weighted": {
+        "current_workbook_method": "sales_basis_weighted",
+        "formula_status": "workbook_observed_pending_source_owner_ratification",
+        "conflict_resolution_note": "Workbook inspection (2026-05-11, Flagship Allocation Workbook v3 CSV exports — Instructions tab + Allocation Engine columns) confirms sales-basis weighting is the observed allocation method. The earlier briefing/ontology lot-count formula is preserved below as a control / tie-out interpretation, NOT the workbook's allocation formula.",
+        "reconciliation_note": "Lot counts remain required for the MDA Day tie-out gate and the per-lot denominator. Lot counts also drive Total Projected Sales (Total Projected Sales = Lots × Avg Projected Sales Price, per the Instructions tab). Sales Basis % per community is the actual allocation weighting. Both inputs are needed: lot counts for control/per-lot math; lots × pricing for the weighting.",
+        "sales_basis_weighted": {
           "phase_share_usd": "community_land_pool * sales_basis_pct_per_phase",
           "per_lot_share_usd": "phase_share_usd / phase_lot_count",
-          "source": "Flagship Allocation Workbook v3.xlsx — Allocation Engine.Land Allocated"
+          "source": "Flagship Allocation Workbook v3 CSV exports — Allocation Engine sheet columns 'Total Proj Sales', 'Sales Basis % (Community)', 'Community Land Pool', 'Land Allocated'; Instructions tab explicitly: 'Total Projected Sales = Lots × Price — this drives the allocation basis' and 'allocates each community indirect/land pool to its lot-type rows by projected-sales-basis %.'",
+          "evidence": "workbook_observed_2026_05_11",
+          "role": "current workbook method"
         },
-        "weighting_note": "Lot-type weighting (SFR vs TH vs MF basis differential) is NOT modeled in either candidate; that would be a v2 method."
+        "lot_count_weighted_control_interpretation": {
+          "phase_share_usd": "raw_land_basis_per_property * (lot_count_in_phase / lot_count_total_property)",
+          "per_lot_share_usd": "phase_share_usd / lot_count_in_phase",
+          "source": "briefing extract; docs/bcp_dev_process_ontology_v1.md; docs/bcp_dev_allocation_accounting_tool_family_plan.md",
+          "evidence": "process_note_not_observed_in_workbook",
+          "role": "control / tie-out interpretation — useful as a sanity check on sales-basis allocation when pricing data is sparse, NOT the workbook's allocation formula"
+        },
+        "weighting_note": "Lot-type weighting (SFR vs TH vs MF basis differential) is NOT modeled here; that would be a v2 method."
       },
       "hard_gates": ["mda_day_lot_count_check"],
       "ratified": true,
-      "formula_status": "pending_source_owner_confirmation",
+      "current_workbook_method": "sales_basis_weighted",
+      "formula_status": "workbook_observed_pending_source_owner_ratification",
       "verification_status": "pending_source_doc_review",
-      "verification_note": "Method concept is ratified — land does get allocated to phases at MDA execution. The WEIGHTING (lot-count vs sales-basis) is disputed between the briefing/ontology docs and the actual workbook formula. Tools must surface both candidates and refuse to compute under a single confident formula until the source owner confirms which is canonical."
+      "verification_note": "Workbook inspection (2026-05-11) confirms the Flagship Allocation Workbook v3 uses sales-basis weighting (Instructions tab + Allocation Engine columns). The lot-count formula from the briefing/ontology is preserved as a control/tie-out interpretation, not the workbook method. Formal source-owner ratification of sales-basis as canonical is still pending (Q23). Tools should present sales-basis as the current working method, surface the lot-count form as control only, and continue to block computation until pricing inputs are populated."
     },
     {
       "rule_id": "ALLOC-002",
@@ -202,6 +209,6 @@
     "Whether indirect allocation must use sales_basis or may fall back to lot_count without explicit per-community ratification.",
     "Whether MPL (Master Planning) has its own allocation method or rolls into Indirect.",
     "Whether lot-type weighting (SFR vs TH vs MF) modifies the equal-weight assumption in direct_per_phase.",
-    "Q23 (added 2026-05-11 from MCP Desktop trial): land_at_mda weighting — lot-count (briefing/ontology) vs sales-basis (Flagship workbook v3). The two authoritative sources disagree; pending source-owner ratification. Until closed, tools surface both candidates and refuse to compute under a single confident formula."
+    "Q23 (originated 2026-05-11 from MCP Desktop trial; narrowed 2026-05-11 after workbook CSV inspection): land_at_mda weighting — Flagship Allocation Workbook v3 CSV inspection (Instructions + Allocation Engine sheets) confirms sales-basis weighting is the observed workbook method. Lot-count formula from briefing/ontology is retained as a control/tie-out interpretation only. Formal source-owner ratification of sales-basis as canonical is still pending; once ratified, drop pending status and remove the lot_count_weighted_control_interpretation block."
   ]
 }

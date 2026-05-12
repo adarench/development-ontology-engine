@@ -541,7 +541,44 @@ class QueryBcpDevProcessTool(Tool):
                             f"(source: `{i.get('system')}`, type: `{i.get('type')}`)\n"
                         )
                 calc = method.get("calculation") or {}
-                if calc and formula_status == "pending_source_owner_confirmation":
+                current_method = (
+                    method.get("current_workbook_method")
+                    or calc.get("current_workbook_method")
+                )
+                if calc and current_method:
+                    primary = calc.get(current_method)
+                    if isinstance(primary, Mapping):
+                        lines.append(
+                            f"- **Current workbook method:** `{current_method}` "
+                            "(workbook-observed, formal source-owner "
+                            "ratification still pending — Q23).\n"
+                        )
+                        phase_share = primary.get("phase_share_usd", "—")
+                        per_lot = primary.get("per_lot_share_usd", "—")
+                        lines.append(f"  - `phase_share_usd`: {phase_share}\n")
+                        lines.append(f"  - `per_lot_share_usd`: {per_lot}\n")
+                    if calc.get("reconciliation_note"):
+                        lines.append(
+                            f"- Reconciliation: {calc['reconciliation_note']}\n"
+                        )
+                    control = calc.get("lot_count_weighted_control_interpretation")
+                    if isinstance(control, Mapping):
+                        lines.append(
+                            "- Control / tie-out interpretation "
+                            "(NOT the workbook formula): "
+                            f"`phase_share_usd = "
+                            f"{control.get('phase_share_usd', '—')}`. "
+                            "Use as a sanity check only when pricing data is "
+                            "sparse.\n"
+                        )
+                    extra_notes.append(
+                        f"Caveat: `{mid}` current workbook method is "
+                        f"`{current_method}` — surfaced from CSV inspection; "
+                        "formal source-owner ratification still pending (Q23). "
+                        "Compute is still blocked until pricing inputs are "
+                        "populated."
+                    )
+                elif calc and formula_status == "pending_source_owner_confirmation":
                     lines.append(
                         "- **Formula is AMBIGUOUS — pending source-owner "
                         "confirmation.** Two candidates documented:\n"
@@ -846,39 +883,89 @@ class ExplainAllocationLogicTool(Tool):
                     f"type: `{i.get('type')}`)\n"
                 )
         calc = method.get("calculation") or {}
-        if calc:
-            # Special-case: formula is ambiguous → surface both candidates with a
-            # leading warning. Do NOT collapse to a single confident formula.
-            if formula_status == "pending_source_owner_confirmation":
-                lines.append(
-                    "\n**Formula is AMBIGUOUS — pending source-owner confirmation.** "
-                    "Two authoritative sources disagree; both candidates are documented "
-                    "below. Tools must not present a single confident formula until the "
-                    "source owner ratifies which is canonical.\n\n"
-                )
-                if calc.get("conflict_note"):
-                    lines.append(f"> {calc['conflict_note']}\n\n")
-                for cand_key in ("candidate_a_lot_count_weighted", "candidate_b_sales_basis_weighted"):
-                    cand = calc.get(cand_key)
-                    if isinstance(cand, Mapping):
-                        lines.append(f"**`{cand_key}`** "
-                                     f"(source: {cand.get('source', '—')}):\n\n")
-                        for k, v in cand.items():
-                            if k == "source":
-                                continue
-                            lines.append(f"- `{k}`: {v}\n")
-                        lines.append("\n")
-                if calc.get("weighting_note"):
-                    lines.append(f"_{calc['weighting_note']}_\n")
-                extra_notes.append(
-                    f"Caveat: `{mid}` formula is `pending_source_owner_confirmation` "
-                    "(Q23 in allocation_methods_v1.json). Tools surface both candidate "
-                    "formulas and refuse to compute under a single weighting."
-                )
-            else:
-                lines.append("\n**Calculation:**\n\n")
-                for k, v in calc.items():
+        current_method = (
+            method.get("current_workbook_method")
+            or calc.get("current_workbook_method")
+        )
+        if calc and current_method:
+            # Workbook-observed method present — lead with it; relegate the
+            # lot-count form to a control / tie-out role.
+            primary = calc.get(current_method)
+            lines.append(
+                f"\n**Current workbook method: `{current_method}`** "
+                "(observed in Flagship Allocation Workbook v3 CSV inspection; "
+                "formal source-owner ratification still pending — Q23).\n\n"
+            )
+            if calc.get("conflict_resolution_note"):
+                lines.append(f"> {calc['conflict_resolution_note']}\n\n")
+            if isinstance(primary, Mapping):
+                lines.append("**Formula (current workbook method):**\n\n")
+                for k, v in primary.items():
+                    if k in {"source", "evidence", "role"}:
+                        continue
                     lines.append(f"- `{k}`: {v}\n")
+                lines.append(
+                    f"\n_Source: {primary.get('source', '—')}_\n\n"
+                )
+            if calc.get("reconciliation_note"):
+                lines.append(
+                    "**Reconciliation with lot counts:** "
+                    f"{calc['reconciliation_note']}\n\n"
+                )
+            control = calc.get("lot_count_weighted_control_interpretation")
+            if isinstance(control, Mapping):
+                lines.append(
+                    "**Control / tie-out interpretation "
+                    "(NOT the workbook formula):**\n\n"
+                )
+                for k, v in control.items():
+                    if k in {"source", "evidence", "role"}:
+                        continue
+                    lines.append(f"- `{k}`: {v}\n")
+                lines.append(
+                    f"\n_Role: {control.get('role', '—')}_\n"
+                    f"_Source: {control.get('source', '—')}_\n\n"
+                )
+            if calc.get("weighting_note"):
+                lines.append(f"_{calc['weighting_note']}_\n")
+            extra_notes.append(
+                f"Caveat: `{mid}` current workbook method is "
+                f"`{current_method}` — sourced from CSV inspection (Instructions + "
+                "Allocation Engine sheets). Formal source-owner ratification still "
+                "pending (Q23). Compute remains blocked until pricing inputs are "
+                "populated; the lot-count form is preserved only as a control / "
+                "tie-out check."
+            )
+        elif calc and formula_status == "pending_source_owner_confirmation":
+            lines.append(
+                "\n**Formula is AMBIGUOUS — pending source-owner confirmation.** "
+                "Two authoritative sources disagree; both candidates are documented "
+                "below. Tools must not present a single confident formula until the "
+                "source owner ratifies which is canonical.\n\n"
+            )
+            if calc.get("conflict_note"):
+                lines.append(f"> {calc['conflict_note']}\n\n")
+            for cand_key in ("candidate_a_lot_count_weighted", "candidate_b_sales_basis_weighted"):
+                cand = calc.get(cand_key)
+                if isinstance(cand, Mapping):
+                    lines.append(f"**`{cand_key}`** "
+                                 f"(source: {cand.get('source', '—')}):\n\n")
+                    for k, v in cand.items():
+                        if k == "source":
+                            continue
+                        lines.append(f"- `{k}`: {v}\n")
+                    lines.append("\n")
+            if calc.get("weighting_note"):
+                lines.append(f"_{calc['weighting_note']}_\n")
+            extra_notes.append(
+                f"Caveat: `{mid}` formula is `pending_source_owner_confirmation` "
+                "(Q23 in allocation_methods_v1.json). Tools surface both candidate "
+                "formulas and refuse to compute under a single weighting."
+            )
+        elif calc:
+            lines.append("\n**Calculation:**\n\n")
+            for k, v in calc.items():
+                lines.append(f"- `{k}`: {v}\n")
 
         # GL pair from account_prefix_matrix via the alloc_pair string on the method
         pair = applies.get("alloc_pair")
