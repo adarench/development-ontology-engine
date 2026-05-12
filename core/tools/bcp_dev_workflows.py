@@ -15,9 +15,10 @@ server. PR 3 will add the readiness tools (`validate_crosswalk_readiness`,
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from core.agent.bcp_dev_context import BcpDevContext
+from core.agent.bcp_dev_context import BcpDevContext, OUT_OF_SCOPE_COMMUNITIES
 from core.tools.base import Tool
 
 
@@ -873,23 +874,824 @@ class ExplainAllocationLogicTool(Tool):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Tool 3: validate_crosswalk_readiness
+# ---------------------------------------------------------------------------
+
+
+class ValidateCrosswalkReadinessTool(Tool):
+    """Report unmapped, ambiguous, or stale crosswalk entries."""
+
+    output_format = "markdown"
+    name = "validate_crosswalk_readiness"
+    description = (
+        "[BCP Dev v0.2 — forward-looking accounting process] Report "
+        "crosswalk readiness across the 13 v0.2 crosswalk tables: resolved "
+        "counts, unresolved-in-table rows (canonical_value=null), "
+        "UNRES-* unresolved mappings, stale source files, and monitored-"
+        "field drift alerts. Scope filter by community / DevCo / 'all'."
+    )
+
+    def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._ctx = context or BcpDevContext()
+
+    def input_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "scope": {
+                    "type": "string",
+                    "description": (
+                        "Optional filter: a community name, a DevCo entity "
+                        "code (BCPD, BCPBL, ASD, BCPI), or 'all'. Default 'all'."
+                    ),
+                }
+            },
+            "required": [],
+        }
+
+    def run(self, data: Any = None, scope: str = "all", **kwargs: Any) -> str:
+        if isinstance(data, dict) and "scope" in data:
+            scope = data["scope"]
+        scope = (scope or kwargs.get("scope") or "all").strip() or "all"
+
+        crosswalks = self._ctx.source_crosswalks()
+        tables = list(crosswalks.get("tables") or ())
+        unresolved = list(crosswalks.get("unresolved_mappings") or ())
+
+        out: list[str] = [_scope_header()]
+        out.append(f"# Crosswalk readiness — scope `{scope}`\n\n")
+
+        # --- Resolved counts per table ---
+        out.append("## Resolved counts per table\n\n")
+        for t in tables:
+            tid = t.get("table_id")
+            name = t.get("name")
+            rows = list(t.get("rows") or ())
+            resolved = sum(1 for r in rows if r.get("canonical_value") is not None)
+            null_rows = len(rows) - resolved
+            out.append(
+                f"- `{tid}` {name}: {resolved} resolved / "
+                f"{null_rows} held / {len(rows)} total\n"
+            )
+
+        # --- Unresolved-in-table rows (canonical_value=null) ---
+        out.append("\n## Unresolved rows (`canonical_value: null` — explicitly unmapped)\n\n")
+        unresolved_rows_found = False
+        for t in tables:
+            for row in t.get("rows") or ():
+                if row.get("canonical_value") is None:
+                    if not _scope_matches(scope, row, tables):
+                        continue
+                    unresolved_rows_found = True
+                    out.append(
+                        f"- `{t.get('table_id')}` "
+                        f"source `{row.get('source_system')}` → "
+                        f"`{row.get('source_value')}` "
+                        f"(confidence: `{row.get('confidence')}`) — "
+                        f"{row.get('notes', '')}\n"
+                    )
+        if not unresolved_rows_found:
+            out.append("- (none in scope)\n")
+
+        # --- UNRES-* unresolved mappings ---
+        out.append("\n## UNRES-* unresolved mappings (held for source-owner review)\n\n")
+        for entry in unresolved:
+            out.append(
+                f"- `{entry.get('id')}` — {entry.get('topic')} "
+                f"(confidence: `inferred-unknown`)\n  - {entry.get('details', '')}\n"
+            )
+
+        # --- Stale sources ---
+        out.append("\n## Stale source files\n\n")
+        warnings = self._ctx.check_source_freshness()
+        if not warnings:
+            out.append("- (none; all source files are `current`)\n")
+        else:
+            for w in warnings:
+                out.append(
+                    f"- `{w.file_id}` (`{w.path}`) — "
+                    f"freshness_caveat=`{w.freshness_caveat}`, "
+                    f"last_modified=`{w.last_modified}`\n"
+                )
+
+        # --- Monitored field drift expectations ---
+        monitored = crosswalks.get("monitored_fields_summary") or {}
+        out.append("\n## Monitored-field drift alerts\n\n")
+        for category in ("must_alert_on_new_value", "must_alert_on_value_change"):
+            items = list(monitored.get(category) or ())
+            if items:
+                out.append(f"**{category}:**\n")
+                for it in items:
+                    out.append(f"- {it}\n")
+
+        out.append("\n" + _provenance_block(
+            self._ctx,
+            (),
+            extra_notes=[
+                "Crosswalk readiness uses `state/bcp_dev/source_crosswalks_v1.json` "
+                "and `state/bcp_dev/source_file_manifest_v1.json`. "
+                "Tools must never guess a mapping — `canonical_value: null` is "
+                "explicitly unmapped.",
+            ],
+        ))
+        return "".join(out)
+
+
+def _scope_matches(scope: str, row: Any, tables: Iterable[Any]) -> bool:
+    """Best-effort scope filter: 'all' passes everything; otherwise the row
+    passes if its canonical_value contains the scope token, or if any other
+    cell mentions it. Soft filter — readiness output should err on the side
+    of showing rows when in doubt."""
+    if scope == "all":
+        return True
+    needle = scope.lower()
+    for key in ("canonical_value", "source_value", "notes", "evidence"):
+        val = row.get(key)
+        if isinstance(val, str) and needle in val.lower():
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Tool 4: check_allocation_readiness
+# ---------------------------------------------------------------------------
+
+
+class CheckAllocationReadinessTool(Tool):
+    """Per (community, phase) readiness check using BcpDevContext.compute_status_for()."""
+
+    output_format = "markdown"
+    name = "check_allocation_readiness"
+    description = (
+        "[BCP Dev v0.2 — forward-looking accounting process] Given a "
+        "(community, phase?) pair, report whether allocation can run today: "
+        "compute_status decision, MDA Day tie-status, input checklist, "
+        "crosswalk readiness, blocker list. Refuses to claim 'ready' for "
+        "out-of-scope DevCos, LH (AAJ #ERROR cascade), range-row methods, "
+        "or master communities with no pricing."
+    )
+
+    def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._ctx = context or BcpDevContext()
+
+    def input_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "community": {
+                    "type": "string",
+                    "description": "Canonical community name.",
+                },
+                "phase": {
+                    "type": "string",
+                    "description": "Optional phase identifier (e.g. 'E1').",
+                },
+            },
+            "required": ["community"],
+        }
+
+    def run(
+        self,
+        data: Any = None,
+        community: str = "",
+        phase: str = "",
+        **kwargs: Any,
+    ) -> str:
+        if isinstance(data, dict):
+            community = community or data.get("community", "")
+            phase = phase or data.get("phase", "")
+        community = (community or kwargs.get("community") or "").strip()
+        phase = (phase or kwargs.get("phase") or "").strip() or None
+
+        if not community:
+            return "**ERROR**: `community` is required."
+
+        out: list[str] = [_scope_header()]
+        out.append(f"# Allocation readiness — {community}"
+                   + (f" / {phase}" if phase else "") + "\n\n")
+
+        status_result = self._ctx.compute_status_for(community, phase)
+        out.append(
+            f"**Decision:** `{status_result.decision}`"
+            + (f" — reason: `{status_result.reason}`" if status_result.reason else "")
+            + "\n\n"
+        )
+
+        if status_result.blockers:
+            out.append("**Blockers:**\n\n")
+            for b in status_result.blockers:
+                out.append(f"- {b}\n")
+            out.append("\n")
+        if status_result.caveats:
+            out.append("**Caveats:**\n\n")
+            for c in status_result.caveats:
+                out.append(f"- {c}\n")
+            out.append("\n")
+
+        # MDA Day tie status — best-effort, PR-1 skeleton (no count overrides in this path).
+        if phase:
+            mda = self._ctx.mda_day_check(community, phase)
+            out.append(
+                f"**MDA Day three-way tie:** `{mda.status}` — {mda.note}\n\n"
+            )
+
+        # Input checklist (always show — drives operator awareness even on blocked).
+        reqs = self._ctx.allocation_input_requirements()
+        global_inputs = list(reqs.get("global_required_inputs") or ())
+        out.append("## Required inputs (from allocation_input_requirements_v1.json)\n\n")
+        out.append("| Input | Category | Grain | Source | Today |\n")
+        out.append("|---|---|---|---|---|\n")
+        for r in global_inputs:
+            out.append(
+                f"| `{r.get('input_id')}` | {r.get('category')} | {r.get('grain')} | "
+                f"{r.get('source_system_authoritative')} | "
+                f"{r.get('default_status_today', '—')} |\n"
+            )
+
+        # Crosswalk readiness — summary line + UNRES count.
+        cw = self._ctx.source_crosswalks()
+        unres_count = len(list(cw.get("unresolved_mappings") or ()))
+        out.append(
+            f"\n## Crosswalk readiness summary\n\n"
+            f"- {unres_count} UNRES-* unresolved mappings open "
+            "(see `validate_crosswalk_readiness` for the full list).\n"
+        )
+
+        # Refusal-pattern cross-references.
+        if status_result.decision == "blocked":
+            out.append(
+                "\n## Refusal\n\n"
+                "Tool refuses to claim 'ready'. "
+                f"Reason: `{status_result.reason}`. "
+                "See `exception_rules_v1.json` for the canonical refusal "
+                "patterns: `EXC-002` (missing required input), "
+                "`EXC-007` (unratified method).\n"
+            )
+
+        out.append("\n" + _provenance_block(
+            self._ctx,
+            ("allocation_methods", "event_map", "exception_rules", "monthly_review_checks"),
+            extra_notes=[
+                "Decision tree lives in `BcpDevContext.compute_status_for()` "
+                "(plan §4). MDA Day partial-tie returns `partial`, not `fail`.",
+            ],
+        ))
+        return "".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Tool 5: detect_accounting_events
+# ---------------------------------------------------------------------------
+
+
+class DetectAccountingEventsTool(Tool):
+    """Surface AccountingEvents from ClickUp status changes. Detection only."""
+
+    output_format = "markdown"
+    name = "detect_accounting_events"
+    description = (
+        "[BCP Dev v0.2 — forward-looking accounting process] Given a "
+        "ClickUp export CSV path or an explicit list of status changes, "
+        "surface the AccountingEvents that should fire under "
+        "clickup_gl_event_map_v1.json. Detection only — never posts "
+        "entries. Surfaces missing required inputs, sentinel SIH/3RDY "
+        "credit codes, unresolved crosswalks, and MDA Day partial-tie."
+    )
+
+    def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._ctx = context or BcpDevContext()
+
+    def input_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "clickup_export_path": {
+                    "type": "string",
+                    "description": "Path to a ClickUp CSV export.",
+                },
+                "status_changes": {
+                    "type": "array",
+                    "description": (
+                        "List of dicts: "
+                        "{task_id, community, phase?, lot_number?, status_from, "
+                        "status_to, fields?}"
+                    ),
+                    "items": {"type": "object"},
+                },
+            },
+            "required": [],
+        }
+
+    def run(
+        self,
+        data: Any = None,
+        clickup_export_path: str = "",
+        status_changes: Optional[list] = None,
+        **kwargs: Any,
+    ) -> str:
+        if isinstance(data, dict):
+            clickup_export_path = clickup_export_path or data.get("clickup_export_path", "")
+            status_changes = status_changes if status_changes is not None else data.get("status_changes")
+        clickup_export_path = (
+            clickup_export_path or kwargs.get("clickup_export_path") or ""
+        ).strip()
+        if status_changes is None:
+            status_changes = kwargs.get("status_changes")
+
+        if not clickup_export_path and not status_changes:
+            return (
+                "**ERROR**: provide either `clickup_export_path` or `status_changes`."
+            )
+
+        changes: list[dict] = []
+        if isinstance(status_changes, list):
+            changes.extend(dict(c) for c in status_changes)
+        if clickup_export_path:
+            try:
+                changes.extend(self._load_export(clickup_export_path))
+            except FileNotFoundError:
+                return (
+                    f"**ERROR**: clickup_export_path `{clickup_export_path}` not found."
+                )
+
+        out: list[str] = [_scope_header()]
+        out.append("# Detected accounting events (detection only — does not post)\n\n")
+        out.append(
+            "_This tool **never posts** GL entries. The `gl_entries` field "
+            "below is the recommended JE shape from "
+            "`clickup_gl_event_map_v1.json`._\n\n"
+        )
+
+        if not changes:
+            out.append("No status changes supplied or extracted from export.\n")
+            out.append("\n" + _provenance_block(self._ctx, ("event_map",)))
+            return "".join(out)
+
+        events_by_target = self._events_by_status_target()
+        extra_notes: list[str] = []
+        detected_count = 0
+        blocked_count = 0
+
+        for change in changes:
+            block = self._evaluate_change(change, events_by_target, extra_notes)
+            if block is None:
+                continue
+            detected_count += 1
+            if "blocker" in block.lower() or "missing" in block.lower():
+                blocked_count += 1
+            out.append(block)
+            out.append("\n")
+
+        if detected_count == 0:
+            out.append("(no status changes matched any event in event_map.)\n")
+
+        out.append(
+            f"\n**Summary:** {detected_count} events detected; "
+            f"{blocked_count} with blocking caveats.\n"
+        )
+
+        out.append("\n" + _provenance_block(
+            self._ctx,
+            ("event_map", "status_taxonomy", "exception_rules"),
+            extra_notes=extra_notes,
+        ))
+        return "".join(out)
+
+    # ------------------------------------------------------------------
+
+    def _load_export(self, path_str: str) -> list[dict]:
+        import csv
+        path = Path(path_str)
+        if not path.is_absolute():
+            path = self._ctx.repo_root / path_str
+        if not path.exists():
+            raise FileNotFoundError(path_str)
+        rows: list[dict] = []
+        with open(path, "r", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Heuristic: status field; community + phase + lot from
+                # subdivision / phase / lot_num. We cannot infer from-status
+                # without a delta export, so emit current-state inference rows
+                # with an inferred-unknown caveat.
+                rows.append({
+                    "task_id": row.get("id"),
+                    "community": row.get("subdivision"),
+                    "phase": row.get("phase"),
+                    "lot_number": row.get("lot_num"),
+                    "status_from": None,  # unknown in single-snapshot export
+                    "status_to": row.get("status"),
+                    "fields": {
+                        "FMV at Transfer": row.get("FMV at Transfer"),
+                        "Sale Price": row.get("Sale Price"),
+                        "Sale Date": row.get("sold_date") or row.get("close_date"),
+                    },
+                    "_inferred_from_snapshot": True,
+                })
+        return rows
+
+    def _events_by_status_target(self) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for event in self._ctx.event_map()["events"]:
+            trig = event.get("trigger") or {}
+            tgt = trig.get("status_change_to")
+            if tgt:
+                out[tgt] = dict(event)
+        return out
+
+    def _evaluate_change(
+        self,
+        change: dict,
+        events_by_target: dict[str, dict],
+        extra_notes: list[str],
+    ) -> Optional[str]:
+        target = change.get("status_to")
+        if not target:
+            return None
+        event = events_by_target.get(target)
+        if event is None:
+            return (
+                f"### Change `{change.get('task_id', '?')}` — "
+                f"status `{target}` not in event_map\n\n"
+                "- No accounting event fires for this status change.\n"
+            )
+
+        eid = event.get("event_id")
+        rid = event.get("rule_id")
+        required = list(event.get("required_inputs") or ())
+        fields = dict(change.get("fields") or {})
+
+        # Required-field check
+        missing_blocking: list[str] = []
+        for r in required:
+            if not r.get("blocks_event_if_missing"):
+                continue
+            fname = r.get("field")
+            val = fields.get(fname)
+            if val in (None, "", "null"):
+                missing_blocking.append(str(fname))
+
+        # Crosswalk resolution for community
+        cw_status: list[str] = []
+        community = change.get("community")
+        if community:
+            res = self._ctx.resolve_canonical(
+                source_system="ClickUp",
+                source_value=community,
+                canonical_type="community",
+            )
+            if res.canonical_value is None:
+                held_or_missing = (
+                    "explicitly unmapped — held for source-owner review"
+                    if res.found
+                    else "no crosswalk row"
+                )
+                extra_notes.append(
+                    f"Caveat: ClickUp subdivision `{community}` did not resolve "
+                    f"to a canonical community ({held_or_missing}) — "
+                    "confidence `inferred-unknown`."
+                )
+                cw_status.append(
+                    f"community resolution: **inferred-unknown** "
+                    f"(source `{community}`, {held_or_missing})"
+                )
+            else:
+                cw_status.append(
+                    f"community resolution: `{res.canonical_value}` "
+                    f"(confidence `{res.confidence}`)"
+                )
+
+        # GL entries + sentinel detection
+        sentinels = {
+            "intercompany_revenue_or_transfer_clearing",
+            "land_sale_revenue",
+        }
+        gl_lines: list[str] = []
+        sentinel_hit = False
+        for entry in event.get("gl_entries") or ():
+            debit = entry.get("debit_account") or entry.get("debit_account_options")
+            credit = entry.get("credit_account") or entry.get("credit_account_options")
+            if (isinstance(credit, str) and credit in sentinels) or (
+                isinstance(debit, str) and debit in sentinels
+            ):
+                sentinel_hit = True
+            gl_lines.append(
+                f"  - `{entry.get('entry_id')}`: debit `{debit}`, credit `{credit}`"
+                + (f" — {entry.get('amount_source')}" if entry.get("amount_source") else "")
+            )
+        if sentinel_hit:
+            extra_notes.append(
+                "Caveat: this event references a sentinel credit account "
+                "(`intercompany_revenue_or_transfer_clearing` / "
+                "`land_sale_revenue`); tools must never fabricate a chart code "
+                "— surfaced as `pending_source_doc_review` (Q17/Q18)."
+            )
+
+        # MDA Day partial-tie wording for mda_execution
+        mda_line = ""
+        if eid == "mda_execution":
+            mda_line = (
+                "- `mda_day_check`: requires three-way tie of "
+                "`clickup_lot_count == mda_lot_count == workbook_lot_count`. "
+                "If only two of three are available and they agree, "
+                "emit `partial`, not `fail` "
+                "(per `exception_rules.mda_day_partial_tie_handling`).\n"
+            )
+
+        # Overall confidence (worst-link)
+        worst: list[str] = []
+        if missing_blocking:
+            worst.append("blocker: missing_required_input")
+        if sentinel_hit:
+            worst.append("pending_source_doc_review (credit code)")
+        if any("inferred-unknown" in s for s in cw_status):
+            worst.append("inferred-unknown (crosswalk)")
+        confidence_line = "high" if not worst else " / ".join(worst)
+
+        lines = [
+            f"### `{event.get('name')}` — event `{eid}` "
+            f"([{rid} from clickup_gl_event_map_v1.json])\n\n",
+            f"- Task: `{change.get('task_id', '?')}` "
+            f"({change.get('community') or '—'} / "
+            f"{change.get('phase') or '—'} / "
+            f"lot {change.get('lot_number') or '—'})\n",
+            f"- Status change: `{change.get('status_from') or '?'}` → `{target}`\n",
+        ]
+        if change.get("_inferred_from_snapshot"):
+            lines.append(
+                "- ⚠ Inferred from single-snapshot ClickUp export "
+                "(status_from unknown); confidence reduced accordingly.\n"
+            )
+        if cw_status:
+            for s in cw_status:
+                lines.append(f"- {s}\n")
+        if missing_blocking:
+            lines.append(
+                f"- **Blocker:** missing required input(s): "
+                f"`{', '.join(missing_blocking)}` — "
+                "see `exception_rules.missing_required_input_refusal`.\n"
+            )
+        else:
+            lines.append("- Required inputs present: yes (for this change)\n")
+        if mda_line:
+            lines.append(mda_line)
+        if gl_lines:
+            lines.append("- Recommended JE shape (not posted):\n")
+            lines.extend(line + "\n" for line in gl_lines)
+        lines.append(f"- Confidence (worst-link): `{confidence_line}`\n")
+        return "".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Tool 6: generate_per_lot_output_spec
+# ---------------------------------------------------------------------------
+
+
+class GeneratePerLotOutputSpecTool(Tool):
+    """Spec-only Per-Lot Output for any (community, phase). Never emits values."""
+
+    output_format = "markdown"
+    name = "generate_per_lot_output_spec"
+    description = (
+        "[BCP Dev v0.2 — forward-looking accounting process] For a given "
+        "(community, phase?), return the canonical Per-Lot Output shape "
+        "with per-field compute_status and blocker list. SPEC ONLY — never "
+        "emits computed dollar values. Cites refusal patterns from "
+        "`per_lot_output_schema_v1.json` for warranty, range-row, missing "
+        "pricing, LH AAJ #ERROR, unresolved crosswalks, and PF negative-"
+        "Indirects sign convention."
+    )
+
+    def __init__(self, context: BcpDevContext | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._ctx = context or BcpDevContext()
+
+    def input_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "community": {"type": "string"},
+                "phase": {"type": "string"},
+            },
+            "required": ["community"],
+        }
+
+    def run(
+        self,
+        data: Any = None,
+        community: str = "",
+        phase: str = "",
+        **kwargs: Any,
+    ) -> str:
+        if isinstance(data, dict):
+            community = community or data.get("community", "")
+            phase = phase or data.get("phase", "")
+        community = (community or kwargs.get("community") or "").strip()
+        phase = (phase or kwargs.get("phase") or "").strip() or None
+
+        if not community:
+            return "**ERROR**: `community` is required."
+
+        schema = self._ctx.per_lot_output_schema()
+        fields = list(schema.get("fields") or ())
+        refusal_patterns = list(schema.get("refusal_patterns") or ())
+
+        status_result = self._ctx.compute_status_for(community, phase)
+        is_pf = community == "Parkway Fields"
+        is_lh = community == "Lomond Heights"
+        is_eagle = community == "Eagle Vista"
+        is_range_row = phase is not None and self._is_range_row_phase(phase)
+
+        out: list[str] = [_scope_header()]
+        out.append(
+            f"# Per-Lot Output Spec — {community}"
+            + (f" / {phase}" if phase else "") + "\n\n"
+        )
+        out.append("_Spec only. No numeric values are emitted by this tool._\n\n")
+        out.append(
+            f"**Scope decision:** `{status_result.decision}`"
+            + (f" — `{status_result.reason}`" if status_result.reason else "")
+            + "\n\n"
+        )
+
+        # Per-field table
+        out.append("## Fields\n\n")
+        out.append("| Field | method_id_ref | grain | compute_status | source | blocker |\n")
+        out.append("|---|---|---|---|---|---|\n")
+        for f in fields:
+            field_status, blocker = self._field_status(
+                f, status_result.decision, is_pf, is_lh, is_eagle, is_range_row
+            )
+            method_ref = f.get("method_id_ref") or "—"
+            grain = f.get("grain") or "—"
+            source = (
+                f.get("source_today")
+                or f.get("formula")
+                or f.get("source_eventually")
+                or "—"
+            )
+            out.append(
+                f"| `{f.get('field_id')}` | `{method_ref}` | {grain} | "
+                f"`{field_status}` | {source} | {blocker or '—'} |\n"
+            )
+
+        # Refusal-pattern citations
+        out.append("\n## Refusal patterns cited (from per_lot_output_schema_v1.json)\n\n")
+        for pat in refusal_patterns:
+            applies = False
+            pid = pat.get("pattern_id", "")
+            trigger = pat.get("trigger", "")
+            if pid == "refuse_range_row" and is_range_row:
+                applies = True
+            if pid == "refuse_zero_basis" and status_result.decision == "spec_only":
+                applies = True
+            if pid == "refuse_org_wide" and community in OUT_OF_SCOPE_COMMUNITIES:
+                applies = True
+            if pid == "refuse_unmapped_phase":
+                # Always cite as available
+                applies = True
+            if pid == "refuse_mda_gate_failure":
+                applies = True
+            mark = "**applies**" if applies else "available"
+            out.append(
+                f"- `{pid}` ({mark}) — trigger: {trigger}\n"
+                f"  - {pat.get('behavior', '')}\n"
+            )
+
+        # Scope-specific notes
+        if is_pf:
+            out.append(
+                "\n## PF-specific notes\n\n"
+                "- **Indirect sign convention:** PF satellite shows the Indirect pool as "
+                "negative ($-1,249,493.54); workbook treats this as a credit. "
+                "Tools that later compute values must flag this caveat.\n"
+                "- **Previous-section refusal:** Phases B2, D1, G1 Church are "
+                "historical/closed. The future `generate_per_lot_output` tool "
+                "refuses to re-allocate these.\n"
+            )
+        if is_lh:
+            out.append(
+                "\n## LH-specific blocker\n\n"
+                "- AAJ Capitalized Interest cell is `#ERROR!`, cascading through "
+                "Indirects total. Tool emits blocker; no values produced.\n"
+            )
+        if is_eagle:
+            out.append(
+                "\n## Eagle Vista blocker\n\n"
+                "- Not present in master Allocation Engine. Spec emitted; values "
+                "blocked until community is added to the workbook.\n"
+            )
+
+        extra_notes = []
+        if any("warranty" in (f.get("field_id") or "") for f in fields):
+            extra_notes.append(
+                "Caveat: `warranty_allocated` and `warranty_per_lot` are spec-only "
+                "until warranty rate (Q5) and pool source (UNRES-07) are ratified."
+            )
+        if is_range_row:
+            extra_notes.append(
+                "Caveat: range-row phases refuse per "
+                "`allocation_methods.range_row_unratified` + `exception_rules.EXC-007`."
+            )
+
+        out.append("\n" + _provenance_block(
+            self._ctx,
+            (),
+            extra_notes=[
+                "Spec sourced from `state/bcp_dev/per_lot_output_schema_v1.json`. "
+                "No values computed; per-field statuses derived from "
+                "BcpDevContext.compute_status_for and per_lot_output_schema."
+                + (f" | {' | '.join(extra_notes)}" if extra_notes else "")
+            ],
+        ))
+        return "".join(out)
+
+    @staticmethod
+    def _is_range_row_phase(phase: str) -> bool:
+        import re
+        return bool(re.match(r"^[A-Za-z]+\s?\d+\s?-\s?\d+$", phase.strip()))
+
+    def _field_status(
+        self,
+        field: dict,
+        scope_decision: str,
+        is_pf: bool,
+        is_lh: bool,
+        is_eagle: bool,
+        is_range_row: bool,
+    ) -> tuple[str, Optional[str]]:
+        """Resolve per-field compute_status for the current scope.
+
+        Returns (status, blocker_id_or_None). Status values: passthrough,
+        input_required, computed_when_inputs_present, blocked, refused, spec_only.
+        """
+        field_id = field.get("field_id", "")
+        category = field.get("category", "")
+        method_ref = field.get("method_id_ref")
+
+        if is_eagle:
+            return ("blocked", "not_in_workbook")
+        if is_lh:
+            return ("blocked", "aaj_error_cascade")
+        if is_range_row:
+            return ("refused", "range_row_unratified")
+        if method_ref == "warranty_at_sale":
+            return ("refused", "warranty_rate_unratified")
+        if scope_decision == "spec_only":
+            if category in {"key", "input"}:
+                return ("input_required", "master_no_pricing")
+            if category in {"computed", "input_estimated"}:
+                return ("blocked", "master_no_pricing")
+            return ("spec_only", "master_no_pricing")
+        if scope_decision == "compute_ready_with_caveat" and is_pf and method_ref == "indirect_community":
+            return ("computed_with_caveat", "pf_indirects_negative_sign")
+        if scope_decision in {"compute_ready", "compute_ready_with_caveat"}:
+            if category in {"key", "input"}:
+                return ("passthrough", None)
+            return ("computed_when_inputs_present", None)
+        if scope_decision == "blocked":
+            return ("blocked", "see_scope_decision")
+        return (field.get("compute_status", "spec_only"), None)
+
+
+# ---------------------------------------------------------------------------
+# Registration helper
+# ---------------------------------------------------------------------------
+
+
 def register_bcp_dev_workflow_tools(registry, context: BcpDevContext | None = None):
-    """Register the PR-2 BCP Dev tools on a ToolRegistry. Returns the registry."""
+    """Register all BCP Dev v0.2 MVP tools on a ToolRegistry. Returns the registry."""
     ctx = context or BcpDevContext()
     registry.register(QueryBcpDevProcessTool(context=ctx))
     registry.register(ExplainAllocationLogicTool(context=ctx))
+    registry.register(ValidateCrosswalkReadinessTool(context=ctx))
+    registry.register(CheckAllocationReadinessTool(context=ctx))
+    registry.register(DetectAccountingEventsTool(context=ctx))
+    registry.register(GeneratePerLotOutputSpecTool(context=ctx))
     return registry
 
 
 BCP_DEV_WORKFLOW_TOOLS = (
     QueryBcpDevProcessTool,
     ExplainAllocationLogicTool,
+    ValidateCrosswalkReadinessTool,
+    CheckAllocationReadinessTool,
+    DetectAccountingEventsTool,
+    GeneratePerLotOutputSpecTool,
 )
 
 
 __all__ = [
     "QueryBcpDevProcessTool",
     "ExplainAllocationLogicTool",
+    "ValidateCrosswalkReadinessTool",
+    "CheckAllocationReadinessTool",
+    "DetectAccountingEventsTool",
+    "GeneratePerLotOutputSpecTool",
     "BCP_DEV_WORKFLOW_TOOLS",
     "register_bcp_dev_workflow_tools",
 ]

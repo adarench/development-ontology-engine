@@ -18,8 +18,12 @@ from core.agent.bcp_dev_context import BcpDevContext
 from core.agent.registry import ToolRegistry
 from core.tools.bcp_dev_workflows import (
     BCP_DEV_WORKFLOW_TOOLS,
+    CheckAllocationReadinessTool,
+    DetectAccountingEventsTool,
     ExplainAllocationLogicTool,
+    GeneratePerLotOutputSpecTool,
     QueryBcpDevProcessTool,
+    ValidateCrosswalkReadinessTool,
     register_bcp_dev_workflow_tools,
 )
 
@@ -292,17 +296,33 @@ def test_explain_unknown_event_refuses(explain_tool: ExplainAllocationLogicTool)
 def test_register_bcp_dev_workflow_tools(ctx: BcpDevContext) -> None:
     registry = ToolRegistry()
     register_bcp_dev_workflow_tools(registry, context=ctx)
-    assert "query_bcp_dev_process" in registry
-    assert "explain_allocation_logic" in registry
-    assert len(registry) == len(BCP_DEV_WORKFLOW_TOOLS) == 2
+    for name in (
+        "query_bcp_dev_process",
+        "explain_allocation_logic",
+        "validate_crosswalk_readiness",
+        "check_allocation_readiness",
+        "detect_accounting_events",
+        "generate_per_lot_output_spec",
+    ):
+        assert name in registry
+    assert len(registry) == len(BCP_DEV_WORKFLOW_TOOLS) == 6
 
 
 def test_descriptions_carry_scope_tag(ctx: BcpDevContext) -> None:
     # Per plan §11 routing recommendation: scope tag on every new tool's MCP
     # description so Desktop's routing between BCPD and BCP Dev is unambiguous.
     tag = "BCP Dev v0.2"
-    assert tag in QueryBcpDevProcessTool(context=ctx).description
-    assert tag in ExplainAllocationLogicTool(context=ctx).description
+    for tool_cls in (
+        QueryBcpDevProcessTool,
+        ExplainAllocationLogicTool,
+        ValidateCrosswalkReadinessTool,
+        CheckAllocationReadinessTool,
+        DetectAccountingEventsTool,
+        GeneratePerLotOutputSpecTool,
+    ):
+        assert tag in tool_cls(context=ctx).description, (
+            f"{tool_cls.__name__} description missing scope tag"
+        )
 
 
 def test_dispatch_via_registry(ctx: BcpDevContext) -> None:
@@ -314,3 +334,314 @@ def test_dispatch_via_registry(ctx: BcpDevContext) -> None:
     )
     assert "land_at_mda" in out
     assert "## Provenance" in out
+
+
+# ---------------------------------------------------------------------------
+# validate_crosswalk_readiness
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def validate_cw_tool(ctx: BcpDevContext) -> ValidateCrosswalkReadinessTool:
+    return ValidateCrosswalkReadinessTool(context=ctx)
+
+
+def test_validate_crosswalk_readiness_lists_resolved_counts(
+    validate_cw_tool: ValidateCrosswalkReadinessTool,
+) -> None:
+    out = validate_cw_tool.run(scope="all")
+    assert "Crosswalk readiness" in out
+    # Resolved counts per table — every CW-* should appear
+    for tid in ("CW-01", "CW-02", "CW-04", "CW-05", "CW-13"):
+        assert tid in out
+
+
+def test_validate_crosswalk_readiness_surfaces_unres_mappings(
+    validate_cw_tool: ValidateCrosswalkReadinessTool,
+) -> None:
+    out = validate_cw_tool.run(scope="all")
+    # Every UNRES-* in the file should be enumerated.
+    for uid in ("UNRES-01", "UNRES-02", "UNRES-03", "UNRES-07", "UNRES-08"):
+        assert uid in out, f"missing {uid} in readiness output"
+
+
+def test_validate_crosswalk_readiness_marks_null_canonical_explicitly(
+    validate_cw_tool: ValidateCrosswalkReadinessTool,
+) -> None:
+    out = validate_cw_tool.run(scope="all")
+    # CW-01 has 'P2 14' as canonical_value=null
+    assert "P2 14" in out
+    # Output should phrase this as explicitly unmapped — never blank
+    assert "explicitly unmapped" in out or "inferred-unknown" in out
+
+
+def test_validate_crosswalk_readiness_provenance_present(
+    validate_cw_tool: ValidateCrosswalkReadinessTool,
+) -> None:
+    out = validate_cw_tool.run(scope="all")
+    assert "## Provenance" in out
+
+
+# ---------------------------------------------------------------------------
+# check_allocation_readiness
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def check_alloc_tool(ctx: BcpDevContext) -> CheckAllocationReadinessTool:
+    return CheckAllocationReadinessTool(context=ctx)
+
+
+def test_check_alloc_readiness_pf_e1_compute_ready(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    out = check_alloc_tool.run(community="Parkway Fields", phase="E1")
+    assert "Allocation readiness" in out
+    assert "compute_ready" in out
+    assert "## Provenance" in out
+
+
+def test_check_alloc_readiness_lh_blocked_by_aaj(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    out = check_alloc_tool.run(community="Lomond Heights", phase="2A")
+    assert "blocked" in out
+    assert "aaj_error_cascade" in out
+    assert "AAJ" in out
+
+
+def test_check_alloc_readiness_eagle_blocked_not_in_workbook(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    out = check_alloc_tool.run(community="Eagle Vista")
+    assert "blocked" in out
+    assert "not_in_workbook" in out
+
+
+def test_check_alloc_readiness_range_row_blocked(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    out = check_alloc_tool.run(community="Arrowhead Springs", phase="AS 1-3")
+    assert "blocked" in out
+    assert "range_row_unratified" in out
+
+
+def test_check_alloc_readiness_spec_only_for_other_communities(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    out = check_alloc_tool.run(community="Harmony", phase="B1")
+    assert "spec_only" in out
+    assert "master_no_pricing" in out
+
+
+def test_check_alloc_readiness_requires_community(
+    check_alloc_tool: CheckAllocationReadinessTool,
+) -> None:
+    out = check_alloc_tool.run(community="")
+    assert "ERROR" in out
+
+
+# ---------------------------------------------------------------------------
+# detect_accounting_events
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def detect_tool(ctx: BcpDevContext) -> DetectAccountingEventsTool:
+    return DetectAccountingEventsTool(context=ctx)
+
+
+def test_detect_events_requires_at_least_one_input(
+    detect_tool: DetectAccountingEventsTool,
+) -> None:
+    out = detect_tool.run()
+    assert "ERROR" in out
+
+
+def test_detect_events_mda_execution(detect_tool: DetectAccountingEventsTool) -> None:
+    out = detect_tool.run(status_changes=[{
+        "task_id": "CU-1",
+        "community": "Park Way",  # exercises CW-01 mapping → Parkway Fields
+        "phase": "E1",
+        "lot_number": "001",
+        "status_from": "LND_RAW_LAND",
+        "status_to": "LND_ENTITLED",
+        "fields": {
+            "MDA Execution Date": "2026-04-01",
+            "Phase Identifier": "E1",
+            "Lot Count by Type (SFR/TH/MF/Comm)": "{SFR:198}",
+            "MDA Lot Count": 198,
+            "Allocation Workbook Lot Count": 198,
+            "Raw Land Basis (per Property)": 12500000,
+        },
+    }])
+    assert "mda_execution" in out
+    assert "EVENT-002" in out
+    # GL entry surfaces correct chart codes
+    assert "131-200" in out
+    assert "131-100" in out
+    # Community crosswalk resolved
+    assert "Parkway Fields" in out
+    # MDA Day partial-tie language present
+    assert "mda_day_check" in out
+    assert "partial" in out
+
+
+def test_detect_events_sih_missing_fmv_is_blocked(
+    detect_tool: DetectAccountingEventsTool,
+) -> None:
+    out = detect_tool.run(status_changes=[{
+        "task_id": "CU-SIH",
+        "community": "Harmony",
+        "phase": "B1",
+        "lot_number": "042",
+        "status_from": "LND_RECORDED_NOT_SOLD",
+        "status_to": "LND_RECORDED_SIH",
+        "fields": {
+            "Sale Counterparty Name": "BCP-HB",
+            "Sale Date": "2026-04-15",
+            "FMV at Transfer": None,
+        },
+    }])
+    assert "lot_sale_sih" in out
+    assert "FMV at Transfer" in out
+    assert "Blocker" in out or "blocker" in out
+    assert "missing_required_input_refusal" in out
+    # Sentinel caveat surfaces
+    assert "intercompany_revenue_or_transfer_clearing" in out
+    assert "pending_source_doc_review" in out or "Q17" in out
+
+
+def test_detect_events_3rdy_missing_sale_price_is_blocked(
+    detect_tool: DetectAccountingEventsTool,
+) -> None:
+    out = detect_tool.run(status_changes=[{
+        "task_id": "CU-3RDY",
+        "community": "Salem Fields",
+        "phase": "B",
+        "lot_number": "101",
+        "status_from": "LND_RECORDED_NOT_SOLD",
+        "status_to": "LND_RECORDED_SOLD_3RDY",
+        "fields": {
+            "Sale Counterparty Name": "Third Party LLC",
+            "Sale Date": "2026-04-15",
+            "Sale Price": None,
+        },
+    }])
+    assert "lot_sale_3rdy" in out
+    assert "Sale Price" in out
+    assert "Blocker" in out or "blocker" in out
+    # 3RDY revenue sentinel caveat
+    assert "land_sale_revenue" in out
+    assert "pending_source_doc_review" in out or "Q18" in out
+
+
+def test_detect_events_unmapped_subdivision_yields_inferred_unknown(
+    detect_tool: DetectAccountingEventsTool,
+) -> None:
+    # 'P2 14' is in CW-01 with canonical_value=null (held)
+    out = detect_tool.run(status_changes=[{
+        "task_id": "CU-UNMAPPED",
+        "community": "P2 14",
+        "phase": "?",
+        "status_from": None,
+        "status_to": "LND_ENTITLED",
+        "fields": {},
+    }])
+    assert "inferred-unknown" in out
+
+
+def test_detect_events_does_not_post(detect_tool: DetectAccountingEventsTool) -> None:
+    out = detect_tool.run(status_changes=[{
+        "task_id": "CU-1",
+        "community": "Parkway Fields",
+        "phase": "E1",
+        "lot_number": "001",
+        "status_from": "LND_RAW_LAND",
+        "status_to": "LND_ENTITLED",
+        "fields": {},
+    }])
+    # The tool must explicitly state it does not post and is detection only
+    assert "detection only" in out.lower()
+    assert "never posts" in out.lower() or "does not post" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# generate_per_lot_output_spec
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def spec_tool(ctx: BcpDevContext) -> GeneratePerLotOutputSpecTool:
+    return GeneratePerLotOutputSpecTool(context=ctx)
+
+
+def test_spec_tool_requires_community(spec_tool: GeneratePerLotOutputSpecTool) -> None:
+    out = spec_tool.run(community="")
+    assert "ERROR" in out
+
+
+def test_spec_pf_e1_shape_compute_ready(
+    spec_tool: GeneratePerLotOutputSpecTool,
+) -> None:
+    out = spec_tool.run(community="Parkway Fields", phase="E1")
+    assert "Per-Lot Output Spec" in out
+    assert "Parkway Fields" in out
+    # Scope decision
+    assert "compute_ready" in out
+    # All key fields surface in the table
+    for fid in (
+        "community", "phase", "lot_type", "lots",
+        "effective_direct_budget", "land_allocated", "indirect_allocated",
+        "water_allocated", "warranty_allocated", "total_cost",
+        "sales_price_per_lot", "margin_per_lot",
+    ):
+        assert f"`{fid}`" in out, f"field {fid!r} missing from spec table"
+    # Warranty must be refused (rate unratified)
+    assert "warranty_rate_unratified" in out
+    # PF-specific Indirect negative-sign note
+    assert "PF-specific notes" in out
+    assert "negative" in out.lower()
+    # Spec only — no numeric dollar values
+    assert "$0" not in out
+
+
+def test_spec_lh_blocked_with_aaj(spec_tool: GeneratePerLotOutputSpecTool) -> None:
+    out = spec_tool.run(community="Lomond Heights")
+    assert "blocked" in out
+    assert "aaj_error_cascade" in out
+    assert "AAJ" in out
+
+
+def test_spec_eagle_vista_blocked_not_in_workbook(
+    spec_tool: GeneratePerLotOutputSpecTool,
+) -> None:
+    out = spec_tool.run(community="Eagle Vista")
+    assert "blocked" in out
+    assert "not_in_workbook" in out
+    # Block explanation present
+    assert "Allocation Engine" in out or "workbook" in out
+
+
+def test_spec_refusal_patterns_render(
+    spec_tool: GeneratePerLotOutputSpecTool,
+) -> None:
+    out = spec_tool.run(community="Arrowhead Springs", phase="AS 1-3")
+    # Refusal-pattern table present and range-row marked applies
+    assert "refuse_range_row" in out
+    assert "range_row_unratified" in out
+    # All fields marked refused
+    assert "refused" in out
+
+
+def test_spec_never_emits_numeric_values(
+    spec_tool: GeneratePerLotOutputSpecTool,
+) -> None:
+    """Spec is for shape + status only. No computed dollar values should leak."""
+    for community in ("Parkway Fields", "Lomond Heights", "Harmony", "Eagle Vista"):
+        out = spec_tool.run(community=community, phase="E1")
+        # Allow $-1.25M to appear in the PF Indirects caveat string only.
+        # No $0, $X,XXX patterns from compute output.
+        assert "$0.00" not in out
+        assert "$1,000,000" not in out
+        assert "Computed value:" not in out
