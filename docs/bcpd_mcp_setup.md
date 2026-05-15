@@ -1,12 +1,18 @@
 # BCPD MCP Setup
 
-A local **MCP stdio server** exposing the six BCPD v2.1 workflow tools to
-any MCP-compatible client (Claude Desktop, Claude web/app where supported,
-or your own MCP client). The server is a thin transport shim over the
-existing runtime — same six tools, same v2.1 state, same guardrails as
-the CLI and the Claude Code Skill bundle.
+> **Looking to use this from Claude on the web?** Most Flagship users
+> want **`docs/bcpd_mcp_claude_web_setup.md`** instead — that's the
+> 2-minute, no-install guide for adding the BCPDev tools as a Custom
+> Connector inside claude.ai. **This doc is for engineers who need
+> local stdio or hosted-bearer access** (Claude Desktop / Claude Code).
 
-**Status**: v0.1 MVP. Local, read-only, pinned to BCPD v2.1.
+A **MCP server** exposing 13 BCPD workflow tools (6 v2.1 BCPD + 7 v0.2
+BCP Dev) to any MCP-compatible client. Two transports: local stdio
+(for Claude Desktop / Claude Code config) and hosted streamable-HTTP
+(for claude.ai web Custom Connector and remote clients). Same tools,
+same state, same guardrails across surfaces.
+
+**Status**: v0.2 with hosted deployment. Read-only, pinned to BCPD v2.1.
 
 ---
 

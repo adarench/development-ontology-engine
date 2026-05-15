@@ -74,7 +74,44 @@ Only tool name, outcome, duration, and result length.
 
 ---
 
-## Token rotation
+## Auth mode (bearer vs none)
+
+The server reads `BCPD_MCP_AUTH_MODE` at boot. Two modes:
+
+| Mode | Posture | When to use |
+|---|---|---|
+| `bearer` | Requires `Authorization: Bearer <BCPD_MCP_TOKEN>` on every `/mcp` request. 401 otherwise. | Engineering use with Claude Desktop / Claude Code; you want a token gate. |
+| `none` | No auth middleware. `/mcp` is publicly reachable. | **Current production.** Required for claude.ai web Custom Connector (its UI only does OAuth — which we don't ship — so a static bearer can't be supplied). |
+
+**Current state:** `fly.toml` sets `BCPD_MCP_AUTH_MODE = "none"`. The
+secret `BCPD_MCP_TOKEN` is left configured on Fly so flipping back to
+bearer is a one-liner:
+
+```bash
+# flip to bearer (re-gate the endpoint)
+fly secrets list -a bcpd-mcp                # confirm BCPD_MCP_TOKEN is still set
+# edit fly.toml — change BCPD_MCP_AUTH_MODE to "bearer"
+fly deploy --build-arg BUILD_SHA=$(git rev-parse --short HEAD) -a bcpd-mcp
+```
+
+A `BCPD_MCP_AUTH_MODE=none` boot emits a loud warning log line:
+
+```json
+{"evt": "auth_disabled",
+ "warning": "MCP /mcp endpoint is public (no bearer); intended for
+ claude.ai web Custom Connector. Read-only contract still applies.
+ Set BCPD_MCP_AUTH_MODE=bearer to re-enable token gating."}
+```
+
+Grep for it in `fly logs` to confirm the current posture:
+
+```bash
+fly logs -a bcpd-mcp --no-tail | grep -E "auth_(disabled|mode)"
+```
+
+---
+
+## Token rotation (bearer mode only)
 
 ```bash
 fly secrets set BCPD_MCP_TOKEN=$(openssl rand -hex 32)
@@ -87,6 +124,10 @@ Rotate when:
 - a token is suspected of leaking,
 - an operator with the old value rotates off,
 - on a fixed schedule (90-day default).
+
+Not applicable while `BCPD_MCP_AUTH_MODE=none` — there's no token in
+effect. Rotating the secret while in no-auth mode is harmless but
+unnecessary.
 
 ---
 

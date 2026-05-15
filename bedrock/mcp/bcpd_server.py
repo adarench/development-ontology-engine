@@ -14,11 +14,20 @@ only ferries inputs → registry.dispatch() → outputs.
 Two transports, selected by env var:
 
     BCPD_MCP_TRANSPORT=stdio   (default — local, for Claude Desktop config)
-    BCPD_MCP_TRANSPORT=http    (hosted streamable-HTTP, bearer-token gated)
+    BCPD_MCP_TRANSPORT=http    (hosted streamable-HTTP)
 
-For http: also set BCPD_MCP_TOKEN (shared bearer). Optional BCPD_MCP_HOST
-(default 0.0.0.0), BCPD_MCP_PORT (default 8000), BCPD_BUILD_SHA (surfaced
-on /healthz).
+For http, choose an auth posture:
+
+    BCPD_MCP_AUTH_MODE=bearer  (default — requires BCPD_MCP_TOKEN; what
+                                Adam's Claude Desktop config uses)
+    BCPD_MCP_AUTH_MODE=none    (public; required for claude.ai web's
+                                Custom Connector UI, which has no bearer
+                                field — only OAuth, which we don't ship)
+
+Optional: BCPD_MCP_HOST (default 0.0.0.0), BCPD_MCP_PORT (default 8000),
+BCPD_BUILD_SHA (surfaced on /healthz), BCPD_MCP_ALLOWED_HOSTS
+(comma-separated Host header allowlist; required when binding to
+0.0.0.0 because the MCP SDK auto-restricts to localhost otherwise).
 
 Run:
     python -m bedrock.mcp.bcpd_server
@@ -512,35 +521,74 @@ def _configure_http_logging() -> None:
 
 
 def _run_http(server: FastMCP, bcpd_ctx: BcpdContext, bcp_dev_ctx: BcpDevContext) -> None:
-    """Serve streamable-HTTP under uvicorn with bearer-token middleware.
+    """Serve streamable-HTTP under uvicorn with optional bearer-token middleware.
+
+    Auth mode comes from `BCPD_MCP_AUTH_MODE` (default `bearer`):
+
+      - `bearer` — requires `BCPD_MCP_TOKEN`; rejects unauthenticated `/mcp`
+        requests with 401. Original posture; used by Adam's Claude Desktop
+        client and the existing bearer-flavored hosted smoke.
+
+      - `none`   — no auth middleware at all. `/mcp` is public. This is the
+        posture required for claude.ai web's Custom Connector UI today
+        because that UI cannot paste static bearer tokens — it only does
+        OAuth, and we don't ship an OAuth 2.1 authorization server. The
+        tools are read-only and the data is internal-but-not-secret BCPD
+        operational content, so URL-only access is an acceptable v1 trade.
+        Boot emits a loud `auth_disabled` log line as the operator's
+        reminder. See plan / risks doc for the full rationale.
 
     Order matters: warmup BEFORE we accept connections so the orchestrator
     sees boot failures, not request-time errors. Health route mounted
-    BEFORE middleware so /healthz remains reachable without a token.
+    before any middleware so /healthz remains reachable in both modes.
     """
     _configure_http_logging()
     _warmup(bcpd_ctx, bcp_dev_ctx)
 
-    token = os.environ.get("BCPD_MCP_TOKEN")
-    if not token:
-        # Fail fast and loud: do not start an unauthenticated HTTP server.
+    mode = os.environ.get("BCPD_MCP_AUTH_MODE", "bearer").lower()
+    if mode not in {"bearer", "none"}:
         raise SystemExit(
-            "BCPD_MCP_TOKEN env var is required for http transport. "
-            "Set a non-empty shared bearer token (e.g. "
-            "`openssl rand -hex 32`) before starting."
+            f"Unknown BCPD_MCP_AUTH_MODE={mode!r} — expected 'bearer' or 'none'."
         )
 
     app = server.streamable_http_app()
-    # Reach into the registry the server already holds. We rebuild the
-    # registry independently to avoid coupling to FastMCP internals.
+    # Rebuild the registry independently for /healthz so we don't reach
+    # into FastMCP internals.
     registry = _build_registry(bcpd_ctx, bcp_dev_ctx)
     _install_healthz(app, registry)
-    app.add_middleware(BearerAuthMiddleware, token=token)
+
+    if mode == "bearer":
+        token = os.environ.get("BCPD_MCP_TOKEN")
+        if not token:
+            raise SystemExit(
+                "BCPD_MCP_TOKEN env var is required when "
+                "BCPD_MCP_AUTH_MODE=bearer. Set a non-empty shared bearer "
+                "token (e.g. `openssl rand -hex 32`) before starting, or "
+                "switch to BCPD_MCP_AUTH_MODE=none for a public deployment."
+            )
+        app.add_middleware(BearerAuthMiddleware, token=token)
+        _log.info(json.dumps({"evt": "auth_mode", "mode": "bearer"}))
+    else:
+        # No middleware attached. Boot log line is the operator's reminder
+        # that /mcp is now publicly reachable from any client on the
+        # internet (subject to BCPD_MCP_ALLOWED_HOSTS Host validation in
+        # the MCP SDK's transport-security layer).
+        _log.warning(
+            json.dumps(
+                {
+                    "evt": "auth_disabled",
+                    "warning": "MCP /mcp endpoint is public (no bearer); "
+                    "intended for claude.ai web Custom Connector. Read-only "
+                    "contract still applies. Set BCPD_MCP_AUTH_MODE=bearer "
+                    "to re-enable token gating.",
+                }
+            )
+        )
 
     host = os.environ.get("BCPD_MCP_HOST", "0.0.0.0")
     port = int(os.environ.get("BCPD_MCP_PORT", "8000"))
     _log.info(
-        json.dumps({"evt": "http_listen", "host": host, "port": port})
+        json.dumps({"evt": "http_listen", "host": host, "port": port, "auth_mode": mode})
     )
 
     import uvicorn

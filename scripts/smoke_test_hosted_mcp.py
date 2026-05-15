@@ -1,9 +1,19 @@
 """Smoke test for the hosted BCPD MCP server (streamable-HTTP transport).
 
-Hits the live URL with a bearer token and runs the same 10 dispatches
-the local stdio smoke test does — reusing the `CHECKS` list directly so
-the two tests cannot drift. Also exercises the auth boundary: a request
-without the bearer header must come back 401.
+Hits the live URL and runs the same 11 dispatches the local stdio smoke
+test does — reusing the `CHECKS` list directly so the two tests cannot
+drift.
+
+Two auth postures supported (server-side `BCPD_MCP_AUTH_MODE`):
+
+  - **bearer** (legacy / Adam's Claude Desktop posture): pass a token via
+    `BCPD_MCP_TOKEN`. The smoke also asserts that a request **without**
+    the bearer comes back 401.
+
+  - **none** (current production posture for claude.ai web Custom
+    Connector): leave `BCPD_MCP_TOKEN` unset. The smoke skips the
+    Authorization header and instead asserts that an unauthenticated
+    request succeeds (returns the MCP `initialize` handshake).
 
 The byte-identity check of the seven protected v2.1 artifacts stays in
 the local smoke test (`scripts/smoke_test_bcpd_mcp.py`) — we cannot
@@ -11,8 +21,13 @@ inspect the remote filesystem from here.
 
 Usage::
 
+    # No-auth (current production):
     BCPD_MCP_URL=https://bcpd-mcp.fly.dev/mcp \\
-    BCPD_MCP_TOKEN=$(cat ~/.config/bcpd_mcp.token) \\
+        python scripts/smoke_test_hosted_mcp.py
+
+    # Bearer-protected:
+    BCPD_MCP_URL=https://bcpd-mcp.fly.dev/mcp \\
+    BCPD_MCP_TOKEN=$(cat .bcpd_mcp_token.local) \\
         python scripts/smoke_test_hosted_mcp.py
 
 Exit code 0 on PASS, 1 on FAIL. Prints one line per dispatch.
@@ -25,7 +40,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 # Make the existing CHECKS list importable.
 HERE = Path(__file__).resolve().parent
@@ -51,20 +66,46 @@ def _require_env(name: str) -> str:
     return val
 
 
-def _check_unauthenticated(url: str) -> bool:
-    """A bare POST to /mcp without a bearer must return 401."""
-    print(f"[hosted-smoke] unauth check: POST {url}")
-    req = urllib.request.Request(url, method="POST", data=b"{}")
+def _check_unauthenticated(url: str, expect_401: bool) -> bool:
+    """Probe `/mcp` with no Authorization header.
+
+    Two valid outcomes depending on server posture:
+
+      - `expect_401=True`  (bearer mode): server MUST return 401.
+      - `expect_401=False` (no-auth mode): server MUST succeed — practically
+        any 2xx-ish MCP response from the SSE/JSON wire is fine. We send
+        an `initialize` payload so the server returns a real MCP response
+        instead of complaining about missing protocol fields.
+    """
+    label = "no-bearer-must-401" if expect_401 else "no-bearer-must-pass"
+    print(f"[hosted-smoke] auth-boundary check ({label}): POST {url}")
+    init_body = (
+        b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":'
+        b'{"protocolVersion":"2025-03-26","capabilities":{},'
+        b'"clientInfo":{"name":"hosted-smoke","version":"0"}}}'
+    )
+    req = urllib.request.Request(url, method="POST", data=init_body)
     req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json, text/event-stream")
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            print(f"  [FAIL] expected 401, got {resp.status}")
+            if expect_401:
+                print(f"  [FAIL] expected 401, got {resp.status}")
+                return False
+            # No-auth mode: any 2xx is success.
+            if 200 <= resp.status < 300:
+                print(f"  [PASS] {resp.status} OK (no-auth public endpoint)")
+                return True
+            print(f"  [FAIL] expected 2xx, got {resp.status}")
             return False
     except urllib.error.HTTPError as e:
-        if e.code == 401:
+        if expect_401 and e.code == 401:
             print("  [PASS] 401 Unauthorized (bearer enforcement works)")
             return True
-        print(f"  [FAIL] expected 401, got HTTP {e.code}")
+        if expect_401:
+            print(f"  [FAIL] expected 401, got HTTP {e.code}")
+            return False
+        print(f"  [FAIL] expected 2xx in no-auth mode, got HTTP {e.code}")
         return False
     except Exception as e:  # noqa: BLE001
         print(f"  [FAIL] request error: {type(e).__name__}: {e}")
@@ -106,9 +147,15 @@ def _extract_text(content) -> str:
     return "".join(parts)
 
 
-async def _run_dispatches(url: str, token: str) -> List[str]:
-    """Open one streamable-HTTP session, run all CHECKS, return failure msgs."""
-    headers = {"Authorization": f"Bearer {token}"}
+async def _run_dispatches(url: str, token: Optional[str]) -> List[str]:
+    """Open one streamable-HTTP session, run all CHECKS, return failure msgs.
+
+    When `token` is None / empty, no Authorization header is sent — for
+    the no-auth server posture used by claude.ai web Custom Connector.
+    """
+    headers: dict = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     failures: List[str] = []
 
     async with streamablehttp_client(url, headers=headers) as (read, write, _):
@@ -143,12 +190,16 @@ async def _run_dispatches(url: str, token: str) -> List[str]:
 
 def main() -> int:
     url = _require_env("BCPD_MCP_URL")
-    token = _require_env("BCPD_MCP_TOKEN")
+    token = os.environ.get("BCPD_MCP_TOKEN")  # optional — None means no-auth mode
+    mode = "bearer" if token else "none"
 
     print(f"[hosted-smoke] target: {url}")
-    print(f"[hosted-smoke] checks: {len(CHECKS)} workflows + auth + healthz")
+    print(f"[hosted-smoke] mode:   {mode} (set BCPD_MCP_TOKEN to force bearer)")
+    print(f"[hosted-smoke] checks: {len(CHECKS)} workflows + auth-boundary + healthz")
 
-    ok_unauth = _check_unauthenticated(url)
+    # In bearer mode the boundary check expects 401; in no-auth mode it
+    # expects a successful unauthenticated request.
+    ok_unauth = _check_unauthenticated(url, expect_401=(mode == "bearer"))
     ok_healthz = _check_healthz(url)
 
     try:

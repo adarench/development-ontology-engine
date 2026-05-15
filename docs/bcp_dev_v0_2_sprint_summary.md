@@ -296,3 +296,39 @@ We now have a working BCP Dev process / allocation MCP layer. It can query proce
 ## Audience suitability
 
 This summary is suitable for **internal Bedrock review as-is**. With light editing, it can also go to **Flagship finance / land / ops stakeholders** — the technical sections (§3 architecture, §11 definition of done) can be condensed or moved to an appendix, but §1, §2, §6, §7, §8, §9, §10, and §14 are already written for a stakeholder audience and should not need substantive changes.
+
+---
+
+## Addendum — 2026-05-15: hosted + claude.ai web access
+
+Two follow-up milestones landed after the v0.2 sprint summary above:
+
+**A. Hosted MCP server on Fly.io.** The same 13 tools are now reachable
+over the public internet at `https://bcpd-mcp.fly.dev/mcp` via
+streamable-HTTP. Single always-on machine in iad, 143 MB image, health
+checks on `/healthz`. Initial deploy used a shared-bearer-token
+middleware. Engineering reference: `docs/bcpd_mcp_operations.md`.
+
+**B. Claude.ai web Custom Connector path.** The bearer middleware was
+made optional (`BCPD_MCP_AUTH_MODE={bearer,none}`) and the production
+deployment now runs in `none` mode because claude.ai's Custom Connector
+UI cannot supply a static bearer token — it only accepts OAuth Client
+ID/Secret in Advanced settings, and we do not ship an OAuth
+authorization server. Trade-off: the `/mcp` endpoint is now publicly
+reachable. Mitigation: read-only contract is enforced in code, server
+logs only tool names / outcomes / durations (never arguments), and the
+data is internal-but-not-secret operational state. v2 backlog includes
+real OAuth 2.1 with dynamic client registration if per-user audit or
+real revocation becomes a requirement.
+
+**Recommended access path by audience:**
+
+| Audience | Surface | Why |
+|---|---|---|
+| Flagship finance / land / ops / non-technical users | **claude.ai web Custom Connector** — see `docs/bcpd_mcp_claude_web_setup.md` | 2-minute setup, no installs, no command line, no JSON config |
+| Bedrock engineers, local dev | Local stdio (`docs/bcpd_mcp_setup.md`) or hosted bearer mode | Claude Desktop / Claude Code, repo-checked-out tools |
+| Automated tests / CI | In-process `registry_for_testing()` or `scripts/smoke_test_bcpd_mcp.py` | No wire transport, byte-identity contract on protected files |
+
+This addendum supersedes any earlier reference in this doc that
+described the system as "stdio only" or "no remote hosting." The
+architecture summary in §3 is otherwise unchanged.

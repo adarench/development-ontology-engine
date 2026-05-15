@@ -22,6 +22,13 @@ primary_region = "iad"
 
 [env]
   BCPD_MCP_TRANSPORT     = "http"
+  # Public, no bearer. Required for claude.ai web's Custom Connector UI,
+  # which only accepts OAuth in Advanced Settings (we don't ship an OAuth
+  # authorization server). The 13 hosted tools are read-only and the
+  # state is internal-but-not-secret BCPD operational content. To revert
+  # to bearer-gated, change this to "bearer" and redeploy — the Fly
+  # secret BCPD_MCP_TOKEN is kept set, so the flip is one env var away.
+  BCPD_MCP_AUTH_MODE     = "none"
   BCPD_MCP_HOST          = "0.0.0.0"
   BCPD_MCP_PORT          = "8000"
   # Comma-separated allowlist for the MCP SDK's DNS-rebinding protection.
