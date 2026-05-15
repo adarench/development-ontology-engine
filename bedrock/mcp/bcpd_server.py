@@ -94,18 +94,55 @@ def _fastmcp_kwargs_from_env() -> dict:
 
     Only relevant for HTTP transport. Stdio ignores these; the kwargs are
     benign there.
+
+    Two transport-security postures:
+
+    - **`BCPD_MCP_AUTH_MODE=none`** (public deployment for claude.ai web):
+      explicitly **disable** the MCP SDK's DNS-rebinding protection. The
+      protection exists to defend localhost MCP servers from a browser
+      being tricked into making cross-origin requests via DNS rebinding;
+      it is meaningless for a public server behind a cloud edge proxy
+      with TLS (we can't be DNS-rebound the way a localhost service can,
+      and there's no authenticated state to abuse via CSRF since this
+      surface is anonymous and read-only).
+
+      Empirical reason: with the protection on, Anthropic's backend
+      probes our `/mcp` with `Origin: https://claude.ai`, the SDK
+      rejects it `403 "Invalid Origin header"` on the CORS preflight,
+      and the claude.ai UI hangs forever on "Checking connection…".
+      Disabling DNS-rebinding protection unblocks the handshake.
+
+      Host validation in this mode falls back to FastMCP's defaults
+      (auto-allowlist for localhost when host=127.0.0.1; no host check
+      when host=0.0.0.0).
+
+    - **`BCPD_MCP_AUTH_MODE=bearer`** (engineering / Claude Desktop):
+      keep the SDK's belt-and-suspenders host+origin allowlist driven
+      by `BCPD_MCP_ALLOWED_HOSTS`. The bearer-token gate is the real
+      auth, but layered host validation costs nothing on this path.
     """
     host = os.environ.get("BCPD_MCP_HOST", "127.0.0.1")
     port = int(os.environ.get("BCPD_MCP_PORT", "8000"))
     kwargs: dict = {"host": host, "port": port}
 
-    # Comma-separated list of Host header values to accept. Empty means
-    # "rely on FastMCP's defaults" (localhost auto-allowlist when host is
-    # 127.0.0.1; no validation when host is 0.0.0.0 — see SDK source).
+    auth_mode = os.environ.get("BCPD_MCP_AUTH_MODE", "bearer").lower()
+
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    if auth_mode == "none":
+        # Explicitly disable DNS-rebinding protection. Without this kwarg,
+        # FastMCP's auto-enable (host==127.0.0.1 → localhost-only allowlist)
+        # would fire when running locally, and BCPD_MCP_ALLOWED_HOSTS would
+        # configure a host+origin allowlist that excludes claude.ai. Both
+        # paths cause the claude.ai "Checking connection…" hang.
+        kwargs["transport_security"] = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
+        return kwargs
+
+    # bearer mode — original posture
     raw = os.environ.get("BCPD_MCP_ALLOWED_HOSTS", "").strip()
     if raw:
-        from mcp.server.transport_security import TransportSecuritySettings
-
         hosts = [h.strip() for h in raw.split(",") if h.strip()]
         # Allow both the bare host (Fly's Host header) and the "host:*"
         # wildcard form (covers local dev on any port).
@@ -569,10 +606,9 @@ def _run_http(server: FastMCP, bcpd_ctx: BcpdContext, bcp_dev_ctx: BcpDevContext
         app.add_middleware(BearerAuthMiddleware, token=token)
         _log.info(json.dumps({"evt": "auth_mode", "mode": "bearer"}))
     else:
-        # No middleware attached. Boot log line is the operator's reminder
+        # No bearer middleware. Boot log line is the operator's reminder
         # that /mcp is now publicly reachable from any client on the
-        # internet (subject to BCPD_MCP_ALLOWED_HOSTS Host validation in
-        # the MCP SDK's transport-security layer).
+        # internet.
         _log.warning(
             json.dumps(
                 {
@@ -584,6 +620,25 @@ def _run_http(server: FastMCP, bcpd_ctx: BcpdContext, bcp_dev_ctx: BcpDevContext
                 }
             )
         )
+        # Add CORS middleware so OPTIONS preflight succeeds (the MCP SDK
+        # streamable-HTTP app only handles GET/POST/DELETE on /mcp and
+        # returns 405 on OPTIONS). claude.ai's backend fetchers are
+        # server-side and theoretically don't trigger preflight, but
+        # browser-side probes from the connector UI configuration step
+        # might. allow_origins="*" is safe here because the surface is
+        # anonymous and read-only — no cookies, no credentials, no
+        # CSRF target. Same reasoning as disabling DNS-rebinding above.
+        from starlette.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+            allow_headers=["*"],
+            allow_credentials=False,
+            # Expose the MCP session ID header so clients can read it.
+            expose_headers=["mcp-session-id"],
+        )
+        _log.info(json.dumps({"evt": "cors_open", "origins": "*"}))
 
     host = os.environ.get("BCPD_MCP_HOST", "0.0.0.0")
     port = int(os.environ.get("BCPD_MCP_PORT", "8000"))
