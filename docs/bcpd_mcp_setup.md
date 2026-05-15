@@ -76,7 +76,10 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (create i
     "bcpd-workflows": {
       "command": "python",
       "args": ["-m", "bedrock.mcp.bcpd_server"],
-      "cwd": "/absolute/path/to/development_ontology_engine"
+      "cwd": "/absolute/path/to/development_ontology_engine",
+      "env": {
+        "PYTHONPATH": "/absolute/path/to/development_ontology_engine"
+      }
     }
   }
 }
@@ -90,11 +93,16 @@ If you installed the deps into a virtual env, point `command` at that env's Pyth
     "bcpd-workflows": {
       "command": "/absolute/path/to/development_ontology_engine/.venv-mcp/bin/python",
       "args": ["-m", "bedrock.mcp.bcpd_server"],
-      "cwd": "/absolute/path/to/development_ontology_engine"
+      "cwd": "/absolute/path/to/development_ontology_engine",
+      "env": {
+        "PYTHONPATH": "/absolute/path/to/development_ontology_engine"
+      }
     }
   }
 }
 ```
+
+**Why both `cwd` AND `env.PYTHONPATH`?** Claude Desktop spawns the MCP subprocess in a working directory that is **not** the repo root, so the `cwd` field alone is not honored — `python -m bedrock.mcp.bcpd_server` then fails with `ModuleNotFoundError: No module named 'bedrock'`. Setting `env.PYTHONPATH` to the repo root puts the package on `sys.path` regardless of cwd. PYTHONPATH is the load-bearing field; `cwd` is kept for any MCP client that does honor it.
 
 Restart Claude Desktop. The six BCPD tools should appear in the tools menu, and Claude can invoke them when a user asks an operational BCPD question.
 
@@ -148,6 +156,7 @@ Verify guardrails by trying these — Claude should decline rather than fabricat
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `ModuleNotFoundError: No module named 'mcp'` when starting server | `requirements-mcp.txt` not installed in the active Python | `pip install -r requirements-mcp.txt`; confirm `python --version` is 3.10+ |
+| `ModuleNotFoundError: No module named 'bedrock'` in Claude Desktop logs (server status: failed / disconnected) | Subprocess cwd is not the repo root; `cwd` field alone is not honored by Claude Desktop | Add `"env": {"PYTHONPATH": "/absolute/path/to/repo"}` to the `mcpServers.bcpd-workflows` entry. Restart Claude Desktop. |
 | Server starts but Claude Desktop can't see the tools | `cwd` path in `claude_desktop_config.json` is wrong | Use the **absolute** path to the repo root, not `~`; restart Claude Desktop after editing the config |
 | First tool call takes ~2–4 seconds | `BcpdContext` lazy-loads the retrieval orchestrator on first dispatch | Expected behavior; subsequent calls are fast. Document or pre-warm if needed |
 | Tool returns `FileNotFoundError: output/operating_state_v2_1_bcpd.json` | State file missing from the working tree (or the wrong repo path is in `cwd`) | Confirm `output/operating_state_v2_1_bcpd.json` exists in the configured `cwd`. The file is tracked in the repo at HEAD |
@@ -180,10 +189,114 @@ Same six tools. Same v2.1 state. Same guardrails. Different transports.
 
 This server is **pinned to BCPD v2.1**. The bundled state file `output/operating_state_v2_1_bcpd.json` carries `schema_version: "operating_state_v2_1_bcpd"`. When BCPD v2.2 ships, package it as a new MCP server entry — do not silently upgrade the v2.1 server. The v2.1 server remains available for reproducing prior reports / audits.
 
-## What's NOT in this v0.1
+## Hosted (remote) deployment
 
-- No remote hosting / shared-team deployment. The server is local.
-- No telemetry. No query logging.
-- No automatic state refresh. v2.2 ships as a new server version.
-- No additional tools beyond the six listed. New capabilities are PR-reviewed runtime additions to `core/tools/bcpd_workflows.py`, then auto-surfaced here.
-- No web/app-specific config. Cloud-side MCP hosting is a follow-up.
+A Fly.io image at `Dockerfile` + `fly.toml` runs the **same** server over
+streamable-HTTP with shared-bearer-token auth. Use this when you want
+Claude Desktop or Claude Code on a different machine — or on a teammate's
+machine — to reach the BCPD tools without bundling the state files
+locally.
+
+**Operational playbook**: `docs/bcpd_mcp_operations.md` (deploy / roll
+back / rotate token / scale / triage).
+
+### Choosing the transport
+
+| Transport | Use when | Config field |
+|---|---|---|
+| `stdio` (this doc, above) | Local dev; single user; no network exposure | `command` + `args` |
+| `http` (streamable-HTTP) | Remote / hosted; multi-machine; bearer-gated | `transport.type: "http"` + `headers` |
+
+### Claude Desktop — point at the hosted server
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
+(create if missing):
+
+```json
+{
+  "mcpServers": {
+    "bcpd-hosted": {
+      "transport": {
+        "type": "http",
+        "url": "https://bcpd-mcp.fly.dev/mcp/"
+      },
+      "headers": {
+        "Authorization": "Bearer PASTE_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+Replace `PASTE_TOKEN_HERE` with the shared bearer token issued to you.
+Restart Claude Desktop. The 13 tools (six v2.1 BCPD + seven v0.2 BCP
+Dev) should appear under `bcpd-hosted` in the slash menu.
+
+If Claude Desktop's exact remote-MCP schema differs in your version,
+fall back to the `mcp-remote` shim:
+
+```json
+{
+  "mcpServers": {
+    "bcpd-hosted": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://bcpd-mcp.fly.dev/mcp/",
+               "--header", "Authorization: Bearer PASTE_TOKEN_HERE"]
+    }
+  }
+}
+```
+
+### Claude Code — add a remote server
+
+```bash
+claude mcp add --transport http bcpd-hosted \
+    https://bcpd-mcp.fly.dev/mcp/ \
+    --header "Authorization: Bearer PASTE_TOKEN_HERE"
+```
+
+Then `claude mcp list` confirms it. Tools are immediately available.
+
+### Verify connectivity
+
+```bash
+# 1. /healthz is open — should return 200 with tool_count: 13
+curl -i https://bcpd-mcp.fly.dev/healthz
+
+# 2. /mcp without bearer should return 401
+curl -i -X POST https://bcpd-mcp.fly.dev/mcp/
+
+# 3. Full hosted smoke test (same 11 dispatches as the local stdio smoke)
+BCPD_MCP_URL=https://bcpd-mcp.fly.dev/mcp \
+BCPD_MCP_TOKEN=PASTE_TOKEN_HERE \
+    python scripts/smoke_test_hosted_mcp.py
+```
+
+Expected final line: `[hosted-smoke] OVERALL: PASS`.
+
+### Token rotation
+
+Tokens are rotated by the operator via `fly secrets set BCPD_MCP_TOKEN=…`
+(see `docs/bcpd_mcp_operations.md` § Token rotation). When that happens,
+**every connected client must update its config** — there is no
+warning, the old token starts returning 401.
+
+### Security posture
+
+- TLS terminates at Fly.io's edge. Plain HTTP is rejected.
+- Auth is a single shared bearer. Sufficient for Adam + a small internal
+  circle; not appropriate for unvetted external users. For multi-user
+  auth, see the v2 follow-up in the deployment plan.
+- The `/healthz` endpoint is open by design so the Fly health check can
+  reach it without a token. It returns only `{status, tool_count,
+  contexts_loaded, build_sha}` — no state contents.
+- No tool arguments are logged. Logs contain `tool, outcome,
+  duration_ms, result_len` only.
+
+## What's NOT in this v0.2
+
+- No per-user authentication (single shared bearer only).
+- No live data refresh — same as v0.1; the server still reads frozen v2.1 state.
+- No automatic state refresh. v2.2 ships as a new server version / image tag.
+- No additional tools beyond the 13 listed (6 v2.1 + 7 v0.2). New capabilities are PR-reviewed runtime additions to `core/tools/bcpd_workflows.py` or `core/tools/bcp_dev_workflows.py`, then auto-surfaced here.
+- No rate limiting or WAF — add if abuse surfaces.

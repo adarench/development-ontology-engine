@@ -247,5 +247,71 @@ def test_dispatch_does_not_mutate_protected_files(registry):
     assert not mutated, f"protected files mutated: {mutated}"
 
 
+# ---------------------------------------------------------------------------
+# M3 — safe dispatch wrapper at the MCP boundary
+# ---------------------------------------------------------------------------
+
+
+def test_safe_dispatch_returns_refusal_for_unknown_tool() -> None:
+    """`_safe_dispatch` converts KeyError → markdown refusal, not an exception."""
+    from bedrock.mcp.bcpd_server import _safe_dispatch, registry_for_testing
+
+    registry = registry_for_testing()
+    out = _safe_dispatch(registry, "no_such_tool_exists", {})
+    assert isinstance(out, str)
+    assert out.startswith("## Refused"), out[:80]
+    assert "mcp_boundary" in out, "boundary provenance marker missing"
+    assert "no_such_tool_exists" in out, "tool name should appear in the body"
+
+
+def test_safe_dispatch_preserves_tool_level_refusals() -> None:
+    """A genuine tool refusal must NOT be marked as an mcp_boundary error.
+
+    The PF replication tool refuses non-PF communities by design. That
+    refusal originates in the tool itself, so the boundary wrapper
+    should pass it through unchanged — i.e. no `mcp_boundary` provenance
+    marker is added on top.
+    """
+    from bedrock.mcp.bcpd_server import _safe_dispatch, registry_for_testing
+
+    registry = registry_for_testing()
+    out = _safe_dispatch(
+        registry,
+        "replicate_pf_satellite_per_lot_output",
+        {"community": "Harmony", "phase": "B1"},
+    )
+    assert isinstance(out, str)
+    # Either the tool returns a refusal or a normal markdown body — but
+    # if it's a refusal, it must be a tool-level one, not boundary-level.
+    if out.lstrip().startswith("## Refused"):
+        assert "mcp_boundary" not in out, (
+            "tool-level refusals should not carry the boundary marker"
+        )
+
+
+def test_safe_dispatch_wraps_unexpected_exception() -> None:
+    """Any non-KeyError exception is wrapped into a refusal string."""
+    from bedrock.mcp.bcpd_server import _safe_dispatch
+    from core.agent.registry import ToolRegistry
+
+    class _Boom:
+        name = "boom"
+        description = "always raises"
+
+        def run(self, **_kwargs) -> str:
+            raise RuntimeError("synthetic failure")
+
+    reg = ToolRegistry()
+    reg.register(_Boom())
+    out = _safe_dispatch(reg, "boom", {})
+    assert isinstance(out, str)
+    assert out.startswith("## Refused"), out[:80]
+    assert "mcp_boundary" in out
+    assert "RuntimeError" in out
+    # The boundary error message must NOT include the original args
+    # (we want to keep them out of any client-visible response too).
+    assert "synthetic failure" in out  # the exception message itself is fine
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

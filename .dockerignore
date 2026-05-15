@@ -1,0 +1,65 @@
+# What Docker is allowed to see during build. The Dockerfile uses
+# selective COPY statements, so this list is a safety net rather than the
+# only line of defense. Keep it tight: anything reachable here can be
+# accidentally pulled into the image by a `COPY .` if someone adds one.
+
+# VCS and local tooling
+.git
+.gitignore
+.github/
+.venv
+.venv-*
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.deepeval/
+.idea/
+.vscode/
+.DS_Store
+
+# Dev artifacts
+dist/
+build/
+*.egg-info/
+PROJECT_STATE.md
+
+# Tests and docs are dev-only
+tests/
+docs/
+
+# Eval / scratch outputs that aren't needed at runtime
+output/llm_eval/
+output/rag_eval/
+output/runtime_demo/
+
+# Raw + intermediate data is huge and not in the runtime read path
+data/raw/
+data/_unzip_tmp/
+data/processed/
+data/staged/
+
+# Global block on workbook exports (most are gitignored anyway)
+*.xlsx
+*.zip
+*.parquet
+*.html
+
+# Block CSV at root by default
+/*.csv
+
+# ...EXCEPT the curated deploy payload we explicitly ship.
+!deploy/data/
+!deploy/data/*
+
+# Keep skill workspace out of the image (its own runtime, separate)
+skills/
+
+# Local plan / agent scratchpads
+.claude/
+
+# Anthropic / API keys
+.env
+.envrc

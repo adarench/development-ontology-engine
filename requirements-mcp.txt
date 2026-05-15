@@ -1,5 +1,14 @@
-# Optional install — only needed for the MCP stdio server at bedrock/mcp/bcpd_server.py.
+# Install required for the MCP server at bedrock/mcp/bcpd_server.py.
 # pip install -r requirements-mcp.txt
 #
 # Pulls in pydantic transitively; pins overlap cleanly with requirements-bedrock.txt.
-mcp>=1.2,<2
+#
+# mcp >= 1.27 needed for streamable-HTTP transport (FastMCP.streamable_http_app)
+# used by the hosted HTTP server. Older 1.2.x only had stdio + SSE.
+mcp>=1.27,<2
+
+# Required when BCPD_MCP_TRANSPORT=http (the hosted streamable-HTTP server
+# is mounted on uvicorn so we can attach the bearer-auth ASGI middleware).
+# Not required for the stdio path; install pulls it in regardless because
+# it's a small dep and keeps the requirements set simple.
+uvicorn>=0.27,<1

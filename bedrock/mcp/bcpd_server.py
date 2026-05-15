@@ -1,39 +1,44 @@
-"""MCP stdio server exposing BCPD workflow tools + BCP Dev v0.2 process tools.
+"""MCP server exposing BCPD workflow tools + BCP Dev v0.2 process tools.
 
 Thin transport shim over `core.tools.bcpd_workflows` (v2.1, six tools) and
-`core.tools.bcp_dev_workflows` (v0.2, six tools). Business logic stays in
-those modules — this module just (a) builds a ToolRegistry via both
+`core.tools.bcp_dev_workflows` (v0.2, seven tools). Business logic stays
+in those modules — this module just (a) builds a ToolRegistry via both
 register helpers, (b) provides typed wrapper functions whose signatures
-FastMCP introspects into MCP JSON schemas, and (c) serves over stdio for
-Claude Desktop / Claude web / any MCP-compatible client.
+FastMCP introspects into MCP JSON schemas, and (c) serves over stdio OR
+streamable-HTTP for Claude Desktop / Claude Code / any MCP-compatible
+client.
 
 Read-only by construction: every Tool.run() returns a string; this server
 only ferries inputs → registry.dispatch() → outputs.
 
-The v0.2 read-only tool family adds six new handlers:
-    query_bcp_dev_process
-    explain_allocation_logic
-    validate_crosswalk_readiness
-    check_allocation_readiness
-    detect_accounting_events
-    generate_per_lot_output_spec
+Two transports, selected by env var:
 
-`generate_per_lot_output` (PR 5) is **not** exposed here — it lands later
-when Finance signs off on the PF satellite replication.
+    BCPD_MCP_TRANSPORT=stdio   (default — local, for Claude Desktop config)
+    BCPD_MCP_TRANSPORT=http    (hosted streamable-HTTP, bearer-token gated)
+
+For http: also set BCPD_MCP_TOKEN (shared bearer). Optional BCPD_MCP_HOST
+(default 0.0.0.0), BCPD_MCP_PORT (default 8000), BCPD_BUILD_SHA (surfaced
+on /healthz).
 
 Run:
     python -m bedrock.mcp.bcpd_server
 
-No CLI flags. No env vars required. The bundled BCPD v2.1 state is loaded
-from the repo paths (BcpdContext defaults to output/operating_state_v2_1_bcpd.json).
-BCP Dev v0.2 state is loaded from `state/process_rules/*.json` and
-`state/bcp_dev/*.json` via BcpDevContext.
+The bundled BCPD v2.1 state is loaded from the repo paths (BcpdContext
+defaults to output/operating_state_v2_1_bcpd.json). BCP Dev v0.2 state
+is loaded from `state/process_rules/*.json` and `state/bcp_dev/*.json`
+via BcpDevContext.
 
 Python requirement: 3.10+ (the mcp SDK requirement). The rest of the
 runtime works on 3.9+, but this module is gated on a newer Python.
 """
 from __future__ import annotations
 
+import hmac
+import json
+import logging
+import os
+import sys
+import time
 from typing import Any, List, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -42,6 +47,9 @@ from core.agent.bcp_dev_context import BcpDevContext
 from core.agent.registry import ToolRegistry
 from core.tools.bcp_dev_workflows import register_bcp_dev_workflow_tools
 from core.tools.bcpd_workflows import BcpdContext, register_bcpd_workflow_tools
+
+
+_log = logging.getLogger("bcpd_mcp")
 
 
 SERVER_NAME = "bcpd-workflows"
@@ -56,11 +64,51 @@ def build_server(
     Returns a configured FastMCP instance. Call `.run(transport="stdio")`
     on the result to serve, or use `registry_for_testing(...)` to get the
     ToolRegistry directly for in-process tests.
+
+    Host + transport-security wiring:
+        FastMCP's default `host="127.0.0.1"` auto-enables DNS-rebinding
+        protection with a localhost-only allowlist. When the operator
+        sets BCPD_MCP_HOST=0.0.0.0 (or anything non-localhost) we pass
+        through that listen address AND an explicit allowlist via
+        BCPD_MCP_ALLOWED_HOSTS (comma-separated). Without the allowlist,
+        any non-localhost Host header (e.g. `bcpd-mcp.fly.dev`) returns
+        421 "Invalid Host header" — the symptom we hit on first deploy.
     """
     registry = _build_registry(bcpd_context, bcp_dev_context)
-    mcp = FastMCP(SERVER_NAME)
+    mcp = FastMCP(SERVER_NAME, **_fastmcp_kwargs_from_env())
     _register_all_tools(mcp, registry)
     return mcp
+
+
+def _fastmcp_kwargs_from_env() -> dict:
+    """Resolve listen host + transport-security from env.
+
+    Only relevant for HTTP transport. Stdio ignores these; the kwargs are
+    benign there.
+    """
+    host = os.environ.get("BCPD_MCP_HOST", "127.0.0.1")
+    port = int(os.environ.get("BCPD_MCP_PORT", "8000"))
+    kwargs: dict = {"host": host, "port": port}
+
+    # Comma-separated list of Host header values to accept. Empty means
+    # "rely on FastMCP's defaults" (localhost auto-allowlist when host is
+    # 127.0.0.1; no validation when host is 0.0.0.0 — see SDK source).
+    raw = os.environ.get("BCPD_MCP_ALLOWED_HOSTS", "").strip()
+    if raw:
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        hosts = [h.strip() for h in raw.split(",") if h.strip()]
+        # Allow both the bare host (Fly's Host header) and the "host:*"
+        # wildcard form (covers local dev on any port).
+        wildcards = [f"{h}:*" for h in hosts if ":" not in h]
+        origins = [f"https://{h}" for h in hosts if ":" not in h]
+        origins += [f"http://{h}" for h in hosts if ":" not in h]
+        kwargs["transport_security"] = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=hosts + wildcards,
+            allowed_origins=origins,
+        )
+    return kwargs
 
 
 def registry_for_testing(
@@ -110,7 +158,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         `project` is the canonical project name (e.g. "Parkway Fields",
         "Harmony", "Scattered Lots"). Returns markdown.
         """
-        return registry.dispatch("generate_project_brief", {"project": project})
+        return _safe_dispatch(registry,"generate_project_brief", {"project": project})
 
     @mcp.tool(name="review_margin_report_readiness", description=desc_margin)
     async def review_margin_report_readiness(scope: str = "bcpd") -> str:
@@ -119,7 +167,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         Surfaces the missing-cost-is-unknown hard rule and the projects
         with no GL coverage. Returns markdown.
         """
-        return registry.dispatch("review_margin_report_readiness", {"scope": scope})
+        return _safe_dispatch(registry,"review_margin_report_readiness", {"scope": scope})
 
     @mcp.tool(name="find_false_precision_risks", description=desc_false)
     async def find_false_precision_risks(scope: str = "bcpd") -> str:
@@ -129,7 +177,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         3-tuple, SctLot vs Scarlet Ridge, HarmCo commercial, AultF B-suffix.
         Returns markdown.
         """
-        return registry.dispatch("find_false_precision_risks", {"scope": scope})
+        return _safe_dispatch(registry,"find_false_precision_risks", {"scope": scope})
 
     @mcp.tool(name="summarize_change_impact", description=desc_change)
     async def summarize_change_impact(
@@ -140,7 +188,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         Default args produce the canonical v2.0→v2.1 change-impact view.
         Returns markdown.
         """
-        return registry.dispatch(
+        return _safe_dispatch(registry,
             "summarize_change_impact",
             {"from_version": from_version, "to_version": to_version},
         )
@@ -151,7 +199,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
 
         Groups source-owner validation queue items by team. Returns markdown.
         """
-        return registry.dispatch("prepare_finance_land_review", {"scope": scope})
+        return _safe_dispatch(registry,"prepare_finance_land_review", {"scope": scope})
 
     @mcp.tool(name="draft_owner_update", description=desc_owner)
     async def draft_owner_update(scope: str = "bcpd") -> str:
@@ -160,7 +208,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         Honest about scope (BCPD only — Hillcrest / Flagship Belmont not
         available). Does NOT claim org-wide v2 is ready. Returns markdown.
         """
-        return registry.dispatch("draft_owner_update", {"scope": scope})
+        return _safe_dispatch(registry,"draft_owner_update", {"scope": scope})
 
     # ----------------- BCP Dev v0.2 forward-looking process tools -----------------
 
@@ -177,7 +225,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         accounts, allocation methods, monthly review checks, or exception
         rules. Returns markdown with rule citations and provenance.
         """
-        return registry.dispatch("query_bcp_dev_process", {"question": question})
+        return _safe_dispatch(registry,"query_bcp_dev_process", {"question": question})
 
     @mcp.tool(name="explain_allocation_logic", description=desc_explain)
     async def explain_allocation_logic(
@@ -189,7 +237,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         to fabricate methods for unratified cases (range_row, warranty
         rate, SIH/3RDY revenue sentinels). Returns markdown.
         """
-        return registry.dispatch(
+        return _safe_dispatch(registry,
             "explain_allocation_logic",
             {"cost_type": cost_type, "event": event},
         )
@@ -199,7 +247,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         """Report unmapped, ambiguous, or stale crosswalk entries across
         the 13 BCP Dev v0.2 crosswalk tables. Returns markdown.
         """
-        return registry.dispatch("validate_crosswalk_readiness", {"scope": scope})
+        return _safe_dispatch(registry,"validate_crosswalk_readiness", {"scope": scope})
 
     @mcp.tool(name="check_allocation_readiness", description=desc_check_alloc)
     async def check_allocation_readiness(
@@ -210,7 +258,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         checklist, blocker list. Refuses to claim ready for LH, range-row
         methods, or master communities with no pricing. Returns markdown.
         """
-        return registry.dispatch(
+        return _safe_dispatch(registry,
             "check_allocation_readiness",
             {"community": community, "phase": phase},
         )
@@ -225,7 +273,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         Surfaces sentinel SIH/3RDY credit-account caveats and missing
         required inputs. Returns markdown.
         """
-        return registry.dispatch(
+        return _safe_dispatch(registry,
             "detect_accounting_events",
             {
                 "clickup_export_path": clickup_export_path,
@@ -241,7 +289,7 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         with per-field compute_status and blocker list. SPEC ONLY — never
         emits numeric dollar values. Returns markdown.
         """
-        return registry.dispatch(
+        return _safe_dispatch(registry,
             "generate_per_lot_output_spec",
             {"community": community, "phase": phase},
         )
@@ -264,15 +312,260 @@ def _register_all_tools(mcp: FastMCP, registry: ToolRegistry) -> None:
         `generate_per_lot_output_spec`), warranty cells, and range rows.
         Returns markdown.
         """
-        return registry.dispatch(
+        return _safe_dispatch(registry,
             "replicate_pf_satellite_per_lot_output",
             {"community": community, "phase": phase},
         )
 
 
+# ---------------------------------------------------------------------------
+# Hosted-transport helpers (M2–M6 in the deployment plan)
+# ---------------------------------------------------------------------------
+
+# Outcome label = "ok" | "refusal" | "unknown_tool" | "error"
+_REFUSAL_PREFIX = "## Refused"
+
+
+def _safe_dispatch(registry: ToolRegistry, name: str, args: dict) -> str:
+    """Wrap ToolRegistry.dispatch with refusal-shaped error handling.
+
+    KeyError (unknown tool) and any unexpected exception are converted into
+    a markdown string that begins with `## Refused` and carries
+    `(provenance: mcp_boundary)` so MCP clients see the same refusal posture
+    that tool-level refusals use. This prevents raw stacktraces from leaking
+    over the wire and keeps client-side rendering uniform.
+
+    Missing-state-at-boot is NOT caught here — `_warmup` runs before serving
+    HTTP so the process exits non-zero and the orchestrator (Fly machine,
+    docker, etc.) makes the failure visible.
+
+    Logs one JSON line per call to stderr. Arguments are NEVER logged
+    (project names and queries may be confidential); only tool name,
+    outcome, duration, and result length.
+    """
+    t0 = time.monotonic()
+    outcome = "ok"
+    result_len = 0
+    try:
+        out = registry.dispatch(name, args)
+        if isinstance(out, str) and out.lstrip().startswith(_REFUSAL_PREFIX):
+            outcome = "refusal"
+        result_len = len(out) if isinstance(out, str) else 0
+        return out
+    except KeyError as exc:
+        outcome = "unknown_tool"
+        msg = (
+            f"{_REFUSAL_PREFIX}\n\n"
+            f"Unknown tool `{name}` at the MCP boundary. "
+            f"(provenance: mcp_boundary)\n\n"
+            f"Detail: {exc}"
+        )
+        result_len = len(msg)
+        return msg
+    except Exception as exc:  # noqa: BLE001 — boundary wrapper, intentional
+        outcome = "error"
+        # Log the full exception only on stderr; never include it in the
+        # response payload because tool input is in scope. The response
+        # surfaces only the exception class to aid client-side triage.
+        _log.exception("tool_error", extra={"tool": name})
+        msg = (
+            f"{_REFUSAL_PREFIX}\n\n"
+            f"Tool `{name}` raised `{type(exc).__name__}` at the MCP "
+            f"boundary. (provenance: mcp_boundary)\n\n"
+            f"Detail: {exc}"
+        )
+        result_len = len(msg)
+        return msg
+    finally:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        # Single JSON line per dispatch — `fly logs | jq` friendly.
+        _log.info(
+            json.dumps(
+                {
+                    "evt": "dispatch",
+                    "tool": name,
+                    "outcome": outcome,
+                    "duration_ms": duration_ms,
+                    "result_len": result_len,
+                }
+            )
+        )
+
+
+class BearerAuthMiddleware:
+    """ASGI middleware enforcing `Authorization: Bearer <token>`.
+
+    Constant-time comparison via `hmac.compare_digest`. Returns HTTP 401
+    with a `WWW-Authenticate: Bearer realm="bcpd-mcp"` header on missing or
+    mismatched tokens. Paths in `exempt_paths` are passed through without
+    auth — used for `/healthz` so the orchestrator's health check does not
+    need to carry the secret.
+
+    Not used in stdio mode. Not used in tests. Only wired up in `main()`
+    when transport=http.
+    """
+
+    def __init__(
+        self,
+        app,
+        token: str,
+        exempt_paths: tuple = ("/healthz",),
+    ) -> None:
+        if not token:
+            raise ValueError("BearerAuthMiddleware: token must be non-empty")
+        self._app = app
+        self._expected = f"Bearer {token}".encode("utf-8")
+        self._exempt = set(exempt_paths)
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            # Lifespan / websocket etc — pass through untouched.
+            await self._app(scope, receive, send)
+            return
+        path = scope.get("path", "")
+        if path in self._exempt:
+            await self._app(scope, receive, send)
+            return
+        auth_header = b""
+        for k, v in scope.get("headers") or []:
+            if k.lower() == b"authorization":
+                auth_header = v
+                break
+        if auth_header and hmac.compare_digest(auth_header, self._expected):
+            await self._app(scope, receive, send)
+            return
+        # Reject — minimal JSON body, WWW-Authenticate per RFC 6750.
+        body = b'{"error":"unauthorized"}'
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                    (b"www-authenticate", b'Bearer realm="bcpd-mcp"'),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
+def _warmup(bcpd_ctx: BcpdContext, bcp_dev_ctx: BcpDevContext) -> None:
+    """Force both contexts to load before serving.
+
+    Reuses existing entry points — `BcpdContext.state` property and
+    `BcpDevContext.load_all()` — so any state-file regression surfaces
+    here rather than on first user request. Any failure propagates;
+    the orchestrator will see a non-zero exit and surface it in logs.
+    """
+    _log.info(json.dumps({"evt": "warmup_start"}))
+    _ = bcpd_ctx.state  # forces FileConnector load of v2.1 JSON
+    bcp_dev_ctx.load_all()  # forces all 11 v0.2 JSON files + validation
+    _log.info(json.dumps({"evt": "warmup_done"}))
+
+
+def _install_healthz(app, registry: ToolRegistry) -> None:
+    """Append GET /healthz to the Starlette app.
+
+    Public (no auth, exempt via the bearer middleware). Returns the tool
+    count, contexts-loaded flag, and the build SHA from env. Used as the
+    orchestrator's HTTP health check.
+    """
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    tool_count = len(registry._tools)  # private attr — single source of truth
+    build_sha = os.environ.get("BCPD_BUILD_SHA", "unknown")
+
+    async def healthz(_request):
+        return JSONResponse(
+            {
+                "status": "ok",
+                "tool_count": tool_count,
+                "contexts_loaded": True,
+                "build_sha": build_sha,
+            }
+        )
+
+    app.router.routes.append(Route("/healthz", healthz, methods=["GET"]))
+
+
+def _configure_http_logging() -> None:
+    """One-shot stderr logger config for the http transport.
+
+    JSON-shaped lines so `fly logs | jq` works. Logger name `bcpd_mcp`
+    is used by `_safe_dispatch` and the warmup helpers.
+    """
+    if _log.handlers:
+        return  # already configured (e.g., test harness reusing the module)
+    handler = logging.StreamHandler(stream=sys.stderr)
+    handler.setFormatter(
+        logging.Formatter(
+            '{"ts":"%(asctime)s","lvl":"%(levelname)s","logger":'
+            '"%(name)s","msg":%(message)s}',
+            datefmt="%Y-%m-%dT%H:%M:%S%z",
+        )
+    )
+    _log.addHandler(handler)
+    _log.setLevel(logging.INFO)
+    _log.propagate = False
+
+
+def _run_http(server: FastMCP, bcpd_ctx: BcpdContext, bcp_dev_ctx: BcpDevContext) -> None:
+    """Serve streamable-HTTP under uvicorn with bearer-token middleware.
+
+    Order matters: warmup BEFORE we accept connections so the orchestrator
+    sees boot failures, not request-time errors. Health route mounted
+    BEFORE middleware so /healthz remains reachable without a token.
+    """
+    _configure_http_logging()
+    _warmup(bcpd_ctx, bcp_dev_ctx)
+
+    token = os.environ.get("BCPD_MCP_TOKEN")
+    if not token:
+        # Fail fast and loud: do not start an unauthenticated HTTP server.
+        raise SystemExit(
+            "BCPD_MCP_TOKEN env var is required for http transport. "
+            "Set a non-empty shared bearer token (e.g. "
+            "`openssl rand -hex 32`) before starting."
+        )
+
+    app = server.streamable_http_app()
+    # Reach into the registry the server already holds. We rebuild the
+    # registry independently to avoid coupling to FastMCP internals.
+    registry = _build_registry(bcpd_ctx, bcp_dev_ctx)
+    _install_healthz(app, registry)
+    app.add_middleware(BearerAuthMiddleware, token=token)
+
+    host = os.environ.get("BCPD_MCP_HOST", "0.0.0.0")
+    port = int(os.environ.get("BCPD_MCP_PORT", "8000"))
+    _log.info(
+        json.dumps({"evt": "http_listen", "host": host, "port": port})
+    )
+
+    import uvicorn
+
+    uvicorn.run(app, host=host, port=port, log_config=None)
+
+
 def main() -> None:
-    """Entry point: build server and serve over stdio."""
-    build_server().run(transport="stdio")
+    """Entry point: build server and serve over stdio OR streamable-HTTP.
+
+    Transport selected by `BCPD_MCP_TRANSPORT` env var (default `stdio`).
+    """
+    transport = os.environ.get("BCPD_MCP_TRANSPORT", "stdio").lower()
+    if transport not in {"stdio", "http"}:
+        raise SystemExit(
+            f"Unknown BCPD_MCP_TRANSPORT={transport!r} — expected "
+            "'stdio' or 'http'."
+        )
+    bcpd_ctx = BcpdContext()
+    bcp_dev_ctx = BcpDevContext()
+    server = build_server(bcpd_ctx, bcp_dev_ctx)
+    if transport == "stdio":
+        server.run(transport="stdio")
+        return
+    _run_http(server, bcpd_ctx, bcp_dev_ctx)
 
 
 if __name__ == "__main__":

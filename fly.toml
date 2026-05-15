@@ -1,0 +1,55 @@
+# Fly.io app config for the BCPD MCP server.
+#
+# One always-on machine. We do NOT use autoscale-to-zero: context warmup
+# (BcpDevContext.load_all + BcpdContext.state) takes a few hundred ms and
+# we don't want the first request after idle to eat that. ~$5/mo for a
+# shared-1x with 512 MB is the right trade.
+#
+# Operational runbook lives in `docs/bcpd_mcp_operations.md`.
+
+app          = "bcpd-mcp"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Build-arg passthrough so /healthz can surface the deployed git SHA.
+# Caller sets it on the deploy command:
+#   fly deploy --build-arg BUILD_SHA=$(git rev-parse --short HEAD)
+# Default empty → image marks BCPD_BUILD_SHA=unknown.
+[build.args]
+  BUILD_SHA = ""
+
+[env]
+  BCPD_MCP_TRANSPORT     = "http"
+  BCPD_MCP_HOST          = "0.0.0.0"
+  BCPD_MCP_PORT          = "8000"
+  # Comma-separated allowlist for the MCP SDK's DNS-rebinding protection.
+  # The default FastMCP behavior auto-restricts to localhost when host is
+  # 127.0.0.1; we listen on 0.0.0.0 behind Fly's edge, so we explicitly
+  # allowlist the public hostname. Add additional hostnames here if you
+  # alias a custom domain to the app (`fly certs add <domain>`).
+  BCPD_MCP_ALLOWED_HOSTS = "bcpd-mcp.fly.dev"
+
+# Public HTTP service. Fly terminates TLS at the edge and proxies plain
+# HTTP/1.1 + HTTP/2 to internal_port. Token auth happens INSIDE the app.
+[http_service]
+  internal_port       = 8000
+  force_https         = true
+  auto_stop_machines  = false   # never stop — warm state
+  auto_start_machines = true    # bring back up after a crash
+  min_machines_running = 1
+  processes           = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval     = "15s"
+    method       = "GET"
+    timeout      = "3s"
+    path         = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  # Bump to 1024mb if the contexts + pandas runtime push us into OOM
+  # territory (look for `Out of memory: Killed process` in fly logs).
