@@ -1,57 +1,7 @@
-from __future__ import annotations
+"""Compatibility shim. Canonical home is core.steps.transform.gl_aggregate.
 
-import pandas as pd
+Will be removed in Phase 0 milestone P0.6 after all callers migrate.
+"""
+from core.steps.transform.gl_aggregate import GLAggregateStep, gl_aggregate
 
-from core.steps.base import DeterministicToolStep
-
-
-class GLAggregateStep(DeterministicToolStep):
-    """Rolls up a normalized GL DataFrame into three aggregate views.
-
-    Input:  normalized DataFrame from GLNormalizeStep
-    Output: dict with keys "by_project", "by_phase", "by_bucket"
-            each containing a summary DataFrame.
-
-    Uses absolute amounts for spend rollups so that offsetting credits
-    (cash CR / liability DR) do not cancel real activity.
-    """
-
-    def run(self, data: pd.DataFrame) -> dict[str, pd.DataFrame]:
-        n = data.copy()
-        n["abs_amount"] = n["amount"].abs()
-
-        by_project = (
-            n.groupby(["entity_role", "project_id", "entity"], dropna=False)
-             .agg(
-                 rows=("amount", "size"),
-                 net_amount=("amount", "sum"),
-                 abs_amount=("abs_amount", "sum"),
-             )
-             .reset_index()
-             .sort_values("abs_amount", ascending=False)
-        )
-
-        proj_only = n[n["entity_role"] == "project"]
-        by_phase = (
-            proj_only.groupby(["project_id", "phase_id", "phase_confidence"], dropna=False)
-                     .agg(
-                         rows=("amount", "size"),
-                         net_amount=("amount", "sum"),
-                         abs_amount=("abs_amount", "sum"),
-                     )
-                     .reset_index()
-                     .sort_values(["project_id", "abs_amount"], ascending=[True, False])
-        )
-
-        by_bucket = (
-            n.groupby("cost_bucket", dropna=False)
-             .agg(
-                 rows=("amount", "size"),
-                 net_amount=("amount", "sum"),
-                 abs_amount=("abs_amount", "sum"),
-             )
-             .reset_index()
-             .sort_values("abs_amount", ascending=False)
-        )
-
-        return {"by_project": by_project, "by_phase": by_phase, "by_bucket": by_bucket}
+__all__ = ["GLAggregateStep", "gl_aggregate"]
