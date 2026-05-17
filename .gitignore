@@ -31,6 +31,9 @@ __pycache__/
 .DS_Store
 *.tsbuildinfo
 
+# --- Local tooling state (Claude Code, etc.) ---
+.claude/
+
 # --- Secrets ---
 .env
 .env.*

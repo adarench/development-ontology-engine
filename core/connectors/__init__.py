@@ -1,8 +1,15 @@
-from core.connectors.base import Connector
-from core.connectors.file import FileConnector
-from core.connectors.quickbooks import QuickBooksConnector
-from core.connectors.clickup import ClickUpConnector
-from core.connectors.datarails import DataRailsConnector
+"""Compatibility shim. Canonical home is core.steps.data.
+
+Will be removed in Phase 0 milestone P0.6 after all callers migrate.
+"""
+from core.steps.data import (
+    Connector,
+    FileConnector,
+    QuickBooksConnector,
+    ClickUpConnector,
+    DataRailsConnector,
+    GCSConnector,
+)
 
 __all__ = [
     "Connector",
@@ -10,4 +17,5 @@ __all__ = [
     "QuickBooksConnector",
     "ClickUpConnector",
     "DataRailsConnector",
+    "GCSConnector",
 ]
